@@ -1,0 +1,15 @@
+{
+  "note": "List prices in USD used for cost estimates on Load runs and the Movement plan. They are estimates, not quotes: discounts, commitments, region and request charges are not included. Edit the numbers here if your contract or region differs.",
+  "checked": "2026-11-25",
+  "currency": "USD",
+  "aws_egress_internet": {
+    "free_gb_per_month": 100,
+    "tiers": [[10240, 0.09], [40960, 0.085], [102400, 0.07], [null, 0.05]],
+    "source": "https://aws.amazon.com/ec2/pricing/on-demand/#Data_Transfer",
+    "applies_to": "Data transfer out from AWS to the internet (e.g. S3 or Redshift to Google Cloud), US and EU regions"
+  },
+  "gcs_standard_gb_month": {"rate": 0.020, "region": "us-east1", "source": "https://cloud.google.com/storage/pricing"},
+  "gcs_ingress_gb": {"rate": 0.0, "source": "https://cloud.google.com/storage/pricing", "applies_to": "Data transfer into Cloud Storage"},
+  "bigquery_batch_load_gb": {"rate": 0.0, "source": "https://cloud.google.com/bigquery/pricing", "applies_to": "Batch load jobs from Cloud Storage"},
+  "bigquery_active_logical_gb_month": {"rate": 0.02, "free_gb_per_month": 10, "source": "https://cloud.google.com/bigquery/pricing"}
+}

@@ -60,6 +60,16 @@ def classify(path: Path) -> tuple[str, str]:
         cat = "dependency"
     elif ext == ".csv" and any(k in str(path).lower() for k in ("/data/", "source_", "target_", "order_month")):
         cat = "data"
+    elif ext == ".csv":
+        # A CSV is only an AWS inventory if its header says so. Data files uploaded for the availability check or a
+        # validation object (any header, often with an "id" column) must not be read as resources.
+        import csv as _csv
+        with path.open(encoding="utf-8", errors="ignore", newline="") as f:
+            hdr = {h.strip().lower() for h in next(_csv.reader(f), [])}
+        if {"source_resource", "target_resource"} <= hdr:
+            cat = "dependency"
+        elif not (hdr & {"service", "resource_type", "aws_service"} or ({"type"} <= hdr and hdr & {"resource_id", "resourceid", "arn"})):
+            cat = "data"
     elif ext == ".xlsx" and "depend" in name:
         cat = "dependency"
     elif ext == ".json":

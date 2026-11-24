@@ -5,14 +5,35 @@ Risk = sum(weight x dimension score); hard gates override the aggregate score (b
 """
 from __future__ import annotations
 
+import hashlib
 from collections import defaultdict
 
 import networkx as nx
 
 from .store import Store, new_id, now
 
+
+def _stable_id(prefix: str, *parts: str) -> str:
+    """Deterministic id for a row that should be upserted in place instead of accumulating duplicates across runs."""
+    return prefix + hashlib.sha256("|".join(parts).encode()).hexdigest()[:16]
+
 WEIGHTS = {"service_compatibility": 0.20, "application_complexity": 0.15, "data_quality": 0.20,
            "dependency_impact": 0.20, "security_compliance": 0.10, "testing_coverage": 0.10, "rollback_readiness": 0.05}
+
+
+TRACKING_STATUSES = ("OPEN", "IN_PROGRESS", "MITIGATED", "ACCEPTED_LOW")
+
+
+def set_risk_followup(store: Store, project_id: str, application: str, dimension: str, tracking_status: str, owner: str,
+                      note: str, actor: str) -> dict:
+    if tracking_status not in TRACKING_STATUSES:
+        raise ValueError(f"Status must be one of {', '.join(TRACKING_STATUSES)}.")
+    row = store.insert("risk_followups", {"id": _stable_id("RSKF-", project_id, application, dimension), "project_id": project_id,
+                                          "application": application, "dimension": dimension, "tracking_status": tracking_status,
+                                          "owner": (owner or "").strip(), "note": (note or "").strip(), "updated_by": actor, "updated_at": now()})
+    store.audit(project_id, actor, "RISK_FOLLOWUP_UPDATED", "risk_followup", row["id"],
+               {"application": application, "dimension": dimension, "status": tracking_status})
+    return row
 
 
 def classify(score: float) -> str:
@@ -50,23 +71,51 @@ def graph_json(g: nx.DiGraph) -> dict:
 
 
 # --------------------------------------------------------------------------- stakeholders
+def set_owner_override(store: Store, project_id: str, application: str, name: str, email: str, type_: str, actor: str) -> dict:
+    """Record a manually entered owner for an application. Resolved ahead of the ownership directory and survives
+    every later re-assessment, until someone clears it."""
+    import re
+    name, email = (name or "").strip(), (email or "").strip()
+    if len(name) < 2:
+        raise ValueError("Enter the owner's name.")
+    if email and not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        raise ValueError("That does not look like an e-mail address.")
+    row = store.insert("stakeholder_overrides", {"id": _stable_id("OVR-", project_id, application), "project_id": project_id,
+                                                 "application": application, "name": name, "email": email, "type": type_ or "BUSINESS_OWNER",
+                                                 "updated_by": actor, "updated_at": now()})
+    store.audit(project_id, actor, "OWNER_ENTERED", "stakeholder_override", row["id"], {"application": application, "name": name})
+    return row
+
+
+def clear_owner_override(store: Store, project_id: str, application: str, actor: str) -> None:
+    store.delete_where("stakeholder_overrides", project_id=project_id, application=application)
+    store.audit(project_id, actor, "OWNER_OVERRIDE_CLEARED", "stakeholder_override", application, {"application": application})
+
+
 def resolve_stakeholders(store: Store, project_id: str, owners: list[dict], g: nx.DiGraph) -> list[dict]:
     by_app = defaultdict(list)
     for o in owners:
         by_app[o["application"]].append(o)
+    overrides = {o["application"]: o for o in store.all("stakeholder_overrides", project_id=project_id)}
     apps = {d.get("application") for _, d in g.nodes(data=True) if d.get("application")}
     out = []
     for app in sorted(apps):
-        if by_app.get(app):
-            for o in by_app[app]:
-                row = store.insert("stakeholders", {"id": new_id("STK-"), "project_id": project_id, "application": app, "name": o["owner_name"],
-                                                    "email": o["owner_email"], "type": o["owner_type"],
+        ov = overrides.get(app)
+        if ov:
+            row = store.insert("stakeholders", {"id": _stable_id("STK-", project_id, app, "override"), "project_id": project_id,
+                                                "application": app, "name": ov["name"], "email": ov["email"] or None, "type": ov["type"],
+                                                "owner_source": f"Entered manually by {ov['updated_by']}", "verified": 1})
+            out.append(row)
+        elif by_app.get(app):
+            for i, o in enumerate(by_app[app]):
+                row = store.insert("stakeholders", {"id": _stable_id("STK-", project_id, app, "dir", str(i)), "project_id": project_id,
+                                                    "application": app, "name": o["owner_name"], "email": o["owner_email"], "type": o["owner_type"],
                                                     "owner_source": "ownership/application_owners.csv", "verified": 1})
                 out.append(row)
         else:
-            row = store.insert("stakeholders", {"id": new_id("STK-"), "project_id": project_id, "application": app, "name": "Owner unknown",
-                                                "email": None, "type": "UNKNOWN", "owner_source": "not found in any supplied directory",
-                                                "verified": 0})
+            row = store.insert("stakeholders", {"id": _stable_id("STK-", project_id, app, "unknown"), "project_id": project_id,
+                                                "application": app, "name": "Owner unknown", "email": None, "type": "UNKNOWN",
+                                                "owner_source": "not found in any supplied directory", "verified": 0})
             out.append(row)
     return out
 
@@ -88,7 +137,11 @@ EVENTS = {
 }
 
 
-def draft_notifications(store: Store, project_id: str, stakeholders: list[dict], ctx: dict) -> list[dict]:
+def draft_notifications(store: Store, project_id: str, stakeholders: list[dict], ctx: dict,
+                        cutover: list[tuple] | None = None) -> list[dict]:
+    """Draft (never send) the stakeholder e-mails. Rows are upserted under stable ids so that what a person did to a draft
+    (edited, approved, recorded as sent, recorded a reply) survives every re-evaluation; see comms.upsert_drafts."""
+    from . import comms
     drafts = []
     for s in stakeholders:
         app = s["application"]
@@ -110,13 +163,23 @@ def draft_notifications(store: Store, project_id: str, stakeholders: list[dict],
                 body_txt = (f"Hello {s['name']},\n\n" + body.format(**fields) +
                             f"\n\nSupport contact: migration-office@example.com\nReference: project {project_id}\n\n"
                             "This is a DRAFT generated by the Migration Accelerator and has not been sent.")
-            drafts.append(store.insert("notifications", {"id": new_id("NTF-"), "project_id": project_id, "stakeholder_id": s["id"],
-                                                         "event": ev, "recipient": recipient, "subject": subj.format(**fields),
-                                                         "body": body_txt, "status": status, "approval": "PENDING", "created_at": now()}))
+            drafts.append({"stakeholder_id": s["id"], "event": ev, "about_app": app, "recipient": recipient,
+                           "subject": subj.format(**fields), "body": body_txt, "status": status, "created_at": now()})
+    for s, ev, about, subj, body in cutover or []:
+        if not s["verified"]:
+            status, recipient = "BLOCKED_OWNER_UNKNOWN", None
+            body_txt = f"[NOT GENERATED] No verified owner for {s['application']}. Request owner enrichment from CMDB/application directory."
+        else:
+            status, recipient = "DRAFT", s["email"]
+            body_txt = (f"Hello {s['name']},\n\n{body}\n\nSupport contact: migration-office@example.com\nReference: project {project_id}\n\n"
+                        "This is a DRAFT generated by the Migration Accelerator and has not been sent.")
+        drafts.append({"stakeholder_id": s["id"], "event": ev, "about_app": about, "recipient": recipient, "subject": subj,
+                       "body": body_txt, "status": status, "created_at": now()})
+    rows = comms.upsert_drafts(store, project_id, drafts)
     store.audit(project_id, "communication-agent", "NOTIFICATION_DRAFTS_CREATED", "notification", "*",
-                {"drafts": sum(1 for d in drafts if d["status"] == "DRAFT"),
-                 "blocked_owner_unknown": sum(1 for d in drafts if d["status"] != "DRAFT"), "sent": 0})
-    return drafts
+                {"drafts": sum(1 for d in rows if d["status"] == "DRAFT"),
+                 "blocked_owner_unknown": sum(1 for d in rows if d["status"] != "DRAFT"), "sent": 0})
+    return rows
 
 
 # --------------------------------------------------------------------------- risk & readiness
@@ -197,13 +260,21 @@ def assess_risk(store: Store, project_id: str, resources: list[dict], mappings: 
             "security_compliance": "Rotate exposed credentials; least-privilege IAM review; CMEK/VPC-SC per policy",
             "testing_coverage": "Execute unit/integration tests and BigQuery dry-runs in non-prod project",
             "rollback_readiness": "Rehearse rollback: re-point consumers to AWS; keep source authoritative until sign-off"}
+        follow = {f["dimension"]: f for f in store.all("risk_followups", project_id=project_id, application=app)}
+        default_owner = next((s["name"] for s in stakeholders if s["application"] == app and s["verified"]), "Owner unknown")
         for d, (sc, why) in dims.items():
-            store.insert("risk_items", {"id": new_id("RSK-"), "project_id": project_id, "application": app, "dimension": d, "score": sc,
-                                        "rationale": why, "mitigation": mitig[d] if sc >= 50 else "Monitor",
-                                        "owner": next((s["name"] for s in stakeholders if s["application"] == app and s["verified"]), "Owner unknown"),
-                                        "status": "OPEN" if sc >= 50 else "ACCEPTED_LOW"})
+            fu = follow.get(d)
+            store.insert("risk_items", {"id": _stable_id("RSK-", project_id, app, d), "project_id": project_id, "application": app,
+                                        "dimension": d, "score": sc, "rationale": why, "mitigation": mitig[d] if sc >= 50 else "Monitor",
+                                        "owner": (fu["owner"] if fu and fu.get("owner") else default_owner),
+                                        "status": (fu["tracking_status"] if fu else ("OPEN" if sc >= 50 else "ACCEPTED_LOW")),
+                                        "follow_up_note": fu["note"] if fu else "", "follow_up_at": fu["updated_at"] if fu else None,
+                                        "follow_up_by": fu["updated_by"] if fu else None})
         out[app] = {"application": app, "score": score, "classification": classify(score),
                     "dimensions": {k: {"score": v[0], "weight": WEIGHTS[k], "rationale": v[1]} for k, v in dims.items()},
-                    "gates": gates, "readiness": readiness}
+                    "gates": gates, "readiness": readiness,
+                    "items": {d: {k: v for k, v in store.get("risk_items", _stable_id("RSK-", project_id, app, d)).items()
+                                  if k in ("dimension", "score", "rationale", "mitigation", "owner", "status", "follow_up_note",
+                                           "follow_up_at", "follow_up_by")} for d in dims}}
     store.audit(project_id, "risk-agent", "RISK_ASSESSED", "risk_assessment", "*", {a: {"score": v["score"], "readiness": v["readiness"]} for a, v in out.items()})
     return out

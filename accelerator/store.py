@@ -51,7 +51,15 @@ CREATE TABLE IF NOT EXISTS validation_results(id TEXT PRIMARY KEY, validation_ru
 CREATE TABLE IF NOT EXISTS validation_exceptions(id TEXT PRIMARY KEY, result_id TEXT, validation_run_id TEXT,
   severity TEXT, details TEXT, owner TEXT, remediation_status TEXT);
 CREATE TABLE IF NOT EXISTS risk_items(id TEXT PRIMARY KEY, project_id TEXT, application TEXT, dimension TEXT,
-  score REAL, rationale TEXT, mitigation TEXT, owner TEXT, status TEXT);
+  score REAL, rationale TEXT, mitigation TEXT, owner TEXT, status TEXT, follow_up_note TEXT, follow_up_at TEXT, follow_up_by TEXT);
+CREATE TABLE IF NOT EXISTS risk_followups(id TEXT PRIMARY KEY, project_id TEXT, application TEXT, dimension TEXT,
+  tracking_status TEXT, owner TEXT, note TEXT, updated_by TEXT, updated_at TEXT);
+CREATE TABLE IF NOT EXISTS stakeholder_overrides(id TEXT PRIMARY KEY, project_id TEXT, application TEXT, name TEXT,
+  email TEXT, type TEXT, updated_by TEXT, updated_at TEXT);
+CREATE TABLE IF NOT EXISTS signoffs(id TEXT PRIMARY KEY, project_id TEXT, application TEXT,
+  business_status TEXT, business_approver TEXT, business_rationale TEXT, business_at TEXT,
+  technical_status TEXT, technical_approver TEXT, technical_rationale TEXT, technical_at TEXT,
+  gates_hash TEXT, status TEXT, created_at TEXT, updated_at TEXT);
 CREATE TABLE IF NOT EXISTS stakeholders(id TEXT PRIMARY KEY, project_id TEXT, application TEXT, name TEXT,
   email TEXT, type TEXT, owner_source TEXT, verified INTEGER);
 CREATE TABLE IF NOT EXISTS notifications(id TEXT PRIMARY KEY, project_id TEXT, stakeholder_id TEXT, event TEXT,
@@ -62,6 +70,19 @@ CREATE TABLE IF NOT EXISTS agent_runs(id TEXT PRIMARY KEY, project_id TEXT, agen
   output_ref TEXT, model_version TEXT, status TEXT, started_at TEXT, ended_at TEXT);
 CREATE TABLE IF NOT EXISTS audit_logs(seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT, project_id TEXT,
   actor TEXT, action TEXT, entity_type TEXT, entity_id TEXT, details TEXT, ts TEXT, prev_hash TEXT, hash TEXT);
+CREATE TABLE IF NOT EXISTS availability_datasets(id TEXT PRIMARY KEY, project_id TEXT, name TEXT, application TEXT,
+  source_access TEXT, date_column TEXT, key_column TEXT, range_start TEXT, range_end TEXT, source_path TEXT, target_path TEXT,
+  source_label TEXT, target_label TEXT, owner_name TEXT, owner_email TEXT, result TEXT, confirmation TEXT, decision_rec TEXT,
+  seeded TEXT, created_at TEXT);
+CREATE TABLE IF NOT EXISTS validation_objects(id TEXT PRIMARY KEY, project_id TEXT, application TEXT, name TEXT,
+  key_column TEXT, pii_columns TEXT, tolerances TEXT, source_path TEXT, target_path TEXT, source_label TEXT, target_label TEXT,
+  last_run_id TEXT, last_status TEXT, seeded TEXT, created_at TEXT, updated_at TEXT);
+CREATE TABLE IF NOT EXISTS monitoring_notes(id TEXT PRIMARY KEY, project_id TEXT, application TEXT, note TEXT,
+  updated_by TEXT, updated_at TEXT);
+CREATE TABLE IF NOT EXISTS app_migration_status(id TEXT PRIMARY KEY, project_id TEXT, application TEXT, status TEXT,
+  note TEXT, updated_by TEXT, updated_at TEXT);
+CREATE TABLE IF NOT EXISTS dependency_confirmations(id TEXT PRIMARY KEY, project_id TEXT, kind TEXT, source TEXT, target TEXT,
+  outcome TEXT, by_name TEXT, note TEXT, recorded_at TEXT);
 CREATE INDEX IF NOT EXISTS ix_res_proj ON resources(project_id);
 CREATE INDEX IF NOT EXISTS ix_batches_run ON migration_batches(run_id);
 CREATE INDEX IF NOT EXISTS ix_vr_run ON validation_results(validation_run_id);
@@ -70,7 +91,8 @@ CREATE INDEX IF NOT EXISTS ix_audit_proj ON audit_logs(project_id);
 
 JSON_COLS = {"config", "extracted_data", "configuration", "evidence", "conflicts", "alternatives", "constraints",
              "warnings", "unsupported", "checks", "totals", "summary", "details", "source_snapshot",
-             "target_snapshot", "checkpoint"}
+             "target_snapshot", "checkpoint", "result", "confirmation", "decision_rec", "pii_columns", "tolerances",
+             "edited", "approval_rec", "tracking", "outputs", "tests", "schema_history"}
 
 
 def now() -> str:
@@ -90,6 +112,27 @@ class Store:
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
         self.conn.commit()
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """Add columns introduced after a table already existed on disk. CREATE TABLE IF NOT EXISTS above
+        leaves an existing project's database untouched, so a new column needs an explicit ALTER TABLE here."""
+        added = {"validation_exceptions": {"note": "TEXT", "updated_by": "TEXT", "updated_at": "TEXT"},
+                 "notifications": {"about_app": "TEXT", "edited": "TEXT", "approval_rec": "TEXT", "tracking": "TEXT",
+                                   "updated_at": "TEXT"},
+                 "conversion_runs": {"upload_id": "TEXT", "version": "TEXT", "kind": "TEXT", "outputs": "TEXT", "outputs_hash": "TEXT",
+                                     "tests": "TEXT", "parent_id": "TEXT", "edited_by": "TEXT", "note": "TEXT",
+                                     "approved_by": "TEXT", "approval_note": "TEXT", "approved_at": "TEXT"},
+                 "migration_batches": {"started_at": "TEXT", "ended_at": "TEXT", "bytes": "INTEGER"},
+                 "migration_runs": {"max_parallel": "INTEGER"},
+                 "availability_datasets": {"schema_history": "TEXT"}}
+        with self._lock:
+            for table, cols in added.items():
+                existing = {r[1] for r in self.conn.execute(f"PRAGMA table_info({table})")}
+                for name, decl in cols.items():
+                    if name not in existing:
+                        self.conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {decl}")
+            self.conn.commit()
 
     # ------------------------------------------------------------ generic helpers
     def insert(self, table: str, row: dict[str, Any]) -> dict[str, Any]:

@@ -80,6 +80,7 @@ main{min-width:0;padding:16px 24px 64px}
 .flash.ok{border-color:#b8d9c4;background:var(--pass-bg)}
 .flash.err{border-color:#f0c2bd;background:var(--fail-bg)}
 .flash.info{border-color:#c9d6e8;background:var(--action-soft)}
+.flash.warn{border-color:#e8d3a9;background:var(--review-bg)}
 .flash button{margin-left:auto;border:0;background:none;cursor:pointer;color:var(--ink-2);padding:0 2px;font-size:16px;line-height:1}
 
 /* ---------------------------------------------------------------- controls */
@@ -275,6 +276,13 @@ pre.json{margin:0;background:var(--sunken);border:1px solid var(--rule-2);border
 .gn.dim{opacity:.25}
 .ge{fill:none;stroke:#9aa3ad;stroke-width:1.2}
 .ge.inferred{stroke:#c98a1a;stroke-dasharray:4 3}
+.ge.owner{stroke:#1f5aa6;stroke-width:1.4}
+.ge.rejected{stroke:#c0392b;stroke-dasharray:2 3;opacity:.45}
+.lrow{border-top:1px solid var(--rule-2);padding:8px 0}
+pre.diff .add{color:#17663a;background:#e8f4ec;display:inline-block;width:100%}
+pre.diff .del{color:#a12a1f;background:#fbeae8;display:inline-block;width:100%}
+.lrow:first-of-type{border-top:0}
+.lrow .lhd{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:2px}
 .ge.dim{opacity:.12}
 .ge.hot{stroke:var(--action);stroke-width:2;opacity:1}
 .gzoom{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;border:1px solid var(--rule);border-radius:var(--r);background:var(--surface)}
@@ -369,6 +377,19 @@ dialog .df{padding:10px 16px;border-top:1px solid var(--rule-2);display:flex;jus
 .st5 td a{display:inline-block;min-width:22px;padding:1px 6px;border-radius:var(--r);font-weight:600;text-decoration:none}
 .st5 td a:hover{background:var(--canvas)}.st5 td .z{color:var(--ink-3)}
 .st5 .c-validated a{color:var(--pass)}.st5 .c-manual a{color:var(--review)}.st5 .c-discrepancy a{color:var(--fail)}.st5 .c-awaiting a{color:var(--action)}.st5 .c-approved a{color:var(--waived)}
+.plist{margin:0 0 12px;padding:0;list-style:none;border:1px solid var(--rule);border-radius:var(--r2)}
+.plist li{border-top:1px solid var(--rule-2)}.plist li:first-child{border-top:0}
+.plist button{display:flex;width:100%;gap:8px;align-items:center;text-align:left;border:0;background:none;padding:8px 10px;cursor:pointer;border-left:3px solid transparent}
+.plist button:hover{background:var(--sunken)}.plist button[aria-current=true]{border-left-color:var(--action);background:var(--action-soft)}
+.plist .n{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.plist .m{color:var(--ink-3);font-size:12px;white-space:nowrap}
+.fgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}.fgrid .wide{grid-column:1/-1}
+@media (max-width:820px){.fgrid{grid-template-columns:1fr}}
+label.fld small{display:block;color:var(--ink-3);font-size:12px;margin-top:3px}label.fld .fe{display:block;color:var(--fail);font-size:12px;margin-top:3px}
+label.fld.bad input,label.fld.bad select{border-color:var(--fail)}
+.startlist{margin:0;padding:0;list-style:none;counter-reset:s}.startlist li{counter-increment:s;display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--rule-2)}.startlist li:first-child{border-top:0}
+.startlist li:before{content:counter(s);flex:none;width:22px;height:22px;border:1px solid var(--rule);text-align:center;line-height:20px;font-size:12px;font-weight:600;color:var(--ink-2)}
+.startlist li.done:before{content:"\2713";background:var(--pass-bg);border-color:#b8d9c4;color:var(--pass)}
+.startlist b{display:block}
 .legend5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;padding:10px 14px;font-size:12px;color:var(--ink-2)}.legend5 b{display:block;color:var(--ink);font-weight:600}
 </style>
 </head>
@@ -398,6 +419,9 @@ dialog .df{padding:10px 16px;border-top:1px solid var(--rule-2);display:flex;jus
 "use strict";
 /* ============================================================== state */
 let S=null, LIVE=false, FLASH=null;
+let PID=(()=>{try{return new URLSearchParams(location.search).get("project")||localStorage.getItem("mx.project")||""}catch(e){return ""}})();
+const pq=(first=true)=>PID?`${first?"?":"&"}project=${encodeURIComponent(PID)}`:"";
+const setPid=id=>{PID=id||"";try{PID?localStorage.setItem("mx.project",PID):localStorage.removeItem("mx.project")}catch(e){}};
 const UI={};                         // per-screen UI state survives re-render
 const TS={};                         // table sort/page state
 const $=s=>document.querySelector(s);
@@ -411,9 +435,19 @@ const day=s=>s?String(s).slice(0,10):"";
 const TONE={pass:["PASS","APPROVED","LOADED","COMPLETED","CORROBORATED","CONFIRMED","READY_FOR_SIGNOFF","ACCEPTED","Low","verified"],
   fail:["FAIL","FAILED","BLOCKED","REJECTED","CONFLICT","Critical","BLOCKED_OWNER_UNKNOWN","COMPLETED_WITH_FAILURES","CRITICAL"],
   review:["REVIEW","PENDING","PENDING_REVIEW","INFERRED","NEEDS_REVIEW","High","OPEN","CONDITIONAL","Medium","WARN","DUPLICATE","HIGH"],
-  waived:["WAIVED"],info:["DRAFT","CAPTURED","RUNNING"]};
+  waived:["WAIVED","PROCEED"],info:["DRAFT","CAPTURED","RUNNING"]};
+TONE.pass.push("AVAILABLE","CLEAR","SIGNED_OFF","MITIGATED","ACCEPTED_LOW");TONE.fail.push("DISCREPANCY","MISSING","HOLD");TONE.review.push("NEEDS_CONFIRMATION","NEEDS_DECISION","CANNOT_CHECK","BUSINESS_ONLY","TECHNICAL_ONLY","IN_PROGRESS","PENDING");
 const tone=v=>{for(const[k,a]of Object.entries(TONE))if(a.includes(v))return k;return"neutral"};
-const LABEL={BLOCKED_OWNER_UNKNOWN:"Owner unknown",READY_FOR_SIGNOFF:"Ready for sign-off",COMPLETED_WITH_FAILURES:"Completed with failures",INVENTORY_ONLY:"Inventory only",IAC_ONLY:"IaC only",NOT_RUN:"Not run"};
+const LABEL={BLOCKED_OWNER_UNKNOWN:"Owner unknown",READY_FOR_SIGNOFF:"Ready for sign-off",COMPLETED_WITH_FAILURES:"Completed with failures",INVENTORY_ONLY:"Inventory only",IAC_ONLY:"IaC only",NOT_RUN:"Not run",
+  AVAILABLE:"Available",DISCREPANCY:"Differences found",MISSING:"Not in target",CANNOT_CHECK:"Could not check",CLEAR:"Clear",NEEDS_CONFIRMATION:"Needs confirmation",NEEDS_DECISION:"Needs decision",PROCEED:"Accepted",HOLD:"On hold",
+  SIGNED_OFF:"Signed off",BUSINESS_ONLY:"Business signed, awaiting technical",TECHNICAL_ONLY:"Technical signed, awaiting business",PENDING:"Awaiting sign-off",ACCEPTED_LOW:"Accepted (low)",IN_PROGRESS:"In progress",MITIGATED:"Mitigated",
+  NOT_SENT:"Not sent",SENT:"Sent, no reply yet",BOUNCED:"Bounced",REPLIED:"Replied",CHANGED_SINCE_APPROVAL:"Changed since approval",
+  NOT_STARTED:"Still on AWS",MIGRATED:"On Google Cloud",OWNER_CONFIRMED:"Owner confirmed",OWNER_REVERSED:"Owner confirmed, other direction",OWNER_REJECTED:"Owner says not a real link",
+  UNCONFIRMED:"Not confirmed",BRIDGE_AGREED:"Bridge agreed",ACKNOWLEDGED:"Acknowledged",QUESTION:"Question",OBJECTION:"Objection"};
+TONE.pass.push("REPLIED","MIGRATED","OWNER_CONFIRMED","OWNER_REVERSED","BRIDGE_AGREED","ACKNOWLEDGED");TONE.fail.push("BOUNCED","OBJECTION","OWNER_REJECTED");
+TONE.review.push("CHANGED_SINCE_APPROVAL","UNCONFIRMED","QUESTION");TONE.info.push("SENT");
+const APP_ST={NOT_STARTED:"Still on AWS",IN_PROGRESS:"Cutover in progress",MIGRATED:"On Google Cloud"};
+const appSt=a=>((S.app_status||{})[a]||{}).status||"NOT_STARTED";
 const st=(v,label)=>`<span class="st ${tone(v)}"${stateTip(v)}>${esc(label??LABEL[v]??human(v))}</span>`;
 const tag=(v,label)=>`<span class="tag ${tone(v)}"${stateTip(v)}>${esc(label??LABEL[v]??human(v))}</span>`;
 const bar=(pct,cls="")=>`<div class="bar ${cls}"><i style="width:${Math.max(0,Math.min(100,pct))}%"></i></div>`;
@@ -421,9 +455,10 @@ const riskCls=s=>s>=75?"fail":s>=50?"review":"pass";
 const clsCls=c=>({Critical:"fail",High:"review",Medium:"review",Low:"pass"}[c]||"action");
 
 /* ---- honesty helpers: what is simulated, how outputs were produced, how strong the evidence is */
-const isSim=()=>S&&S.project&&/synthetic|prototype/i.test(`${S.project.aws_account||""} ${S.project.customer||""}`);
+const isSim=()=>S&&S.project&&(((S.project.config||{}).execution==="simulated")||/synthetic|prototype/i.test(`${S.project.aws_account||""} ${S.project.customer||""}`));
+const isSample=()=>!S.stages||S.stages.sample;
 const aiOn=()=>!!(S&&S.agent_runs&&S.agent_runs.some(a=>a.model_version&&!/llm\s*=\s*none/i.test(a.model_version)));
-const METH_SCREENS=["discovery","dependencies","mapping","conversion","plan","validation","readiness","stakeholders"];
+const METH_SCREENS=["availability","discovery","dependencies","mapping","conversion","plan","validation","readiness","stakeholders"];
 const methBadge=id=>METH_SCREENS.includes(id)?(aiOn()
   ?`<span class="meth ai" title="Explanations come from a language model. Counts, hashes, scores and comparisons are always computed in code.">AI-assisted</span>`
   :`<span class="meth" title="Every result on this screen comes from deterministic rules and code. No language model is connected, so nothing here is a model's opinion.">Rules only</span>`):"";
@@ -456,7 +491,7 @@ const evTag=(r,v)=>{const[l,c,t]=evLevel(r,v);return `<span class="ev ${c}" titl
 /* the five states every item is in */
 const STATE5={validated:["Validated automatically","Checked by the tool and passing."],manual:["Needs a manual check","The tool could not decide. A person has to verify it."],
   discrepancy:["Has a discrepancy","A difference or problem was found."],awaiting:["Awaiting approval","Waiting for someone to approve, confirm or send it."],approved:["Approved to continue","A person approved it, or recorded a waiver."]};
-const STATE_OF={PASS:"validated",CORROBORATED:"validated",CONFIRMED:"validated",ACCEPTED:"validated",
+const STATE_OF={AVAILABLE:"validated",CLEAR:"validated",NEEDS_CONFIRMATION:"manual",NEEDS_DECISION:"awaiting",DISCREPANCY:"discrepancy",MISSING:"discrepancy",CANNOT_CHECK:"manual",PROCEED:"approved",HOLD:"awaiting",PASS:"validated",CORROBORATED:"validated",CONFIRMED:"validated",ACCEPTED:"validated",
   REVIEW:"manual",NOT_RUN:"manual",NEEDS_REVIEW:"manual",INFERRED:"manual",OPEN:"manual",BLOCKED_OWNER_UNKNOWN:"manual",WARN:"manual",DUPLICATE:"manual",CONDITIONAL:"manual",PENDING_REVIEW:"manual",INVENTORY_ONLY:"manual",IAC_ONLY:"manual",
   FAIL:"discrepancy",FAILED:"discrepancy",CONFLICT:"discrepancy",COMPLETED_WITH_FAILURES:"discrepancy",REJECTED:"discrepancy",
   PENDING:"awaiting",DRAFT:"awaiting",BLOCKED:"awaiting",
@@ -467,11 +502,12 @@ const stateTip=v=>{const k=state5(v);return k?` title="${esc(STATE5[k][0])}. ${e
 /* ============================================================== navigation */
 const NAV=[
   [null,[["overview","Overview"]]],
-  ["Assess",[["uploads","Uploads"],["discovery","Discovery"],["dependencies","Dependencies"],["mapping","Service mapping"]]],
+  ["Assess",[["uploads","Uploads"],["discovery","Discovery"],["dependencies","Dependencies"],["availability","Data availability"],["mapping","Service mapping"]]],
   ["Build",[["conversion","Code conversion"]]],
   ["Move data",[["plan","Movement plan"],["loads","Load runs"],["validation","Validation"]]],
   ["Go live",[["readiness","Readiness"],["stakeholders","Stakeholders"],["audit","Reports and audit"]]]];
 const TITLES=Object.fromEntries(NAV.flatMap(([g,items])=>items.map(([id,n])=>[id,[g,n]])));
+TITLES.new=[null,"New project"];
 const route=()=>{const h=(location.hash||"#overview").slice(1);return TITLES[h]?h:"overview"};
 
 function navCounts(){
@@ -480,9 +516,9 @@ function navCounts(){
   const blocked=Object.values(S.risk).filter(r=>r.readiness==="BLOCKED").length;
   const unknown=S.notifications.filter(n=>n.status==="BLOCKED_OWNER_UNKNOWN").length;
   return {uploads:[S.uploads.length],discovery:[S.discovery.stats.conflicts?`${S.discovery.stats.conflicts} conflicts`:S.discovery.resources.length,S.discovery.stats.conflicts?"warn":""],
-    dependencies:[S.graph.edges.length],mapping:[pendMap?`${pendMap} pending`:S.mappings.length,pendMap?"warn":""],
+    dependencies:[S.graph.edges.length],availability:(()=>{const a=S.availability||{summary:{total:0,unresolved:0}};return[a.summary.unresolved?`${a.summary.unresolved} to resolve`:a.summary.total,a.summary.unresolved?"warn":""]})(),mapping:[pendMap?`${pendMap} pending`:S.mappings.length,pendMap?"warn":""],
     conversion:[S.conversions.length],plan:[S.plan.movement.length],loads:[S.migration.runs.length],
-    validation:[failing?`${failing} failing`:lv.length,failing?"bad":""],readiness:[blocked?`${blocked} blocked`:"ready",blocked?"bad":""],
+    validation:[failing?`${failing} failing`:lv.length,failing?"bad":""],readiness:S.stages&&!S.stages.assessed?[null]:[blocked?`${blocked} blocked`:"ready",blocked?"bad":""],
     stakeholders:[unknown?`${unknown} blocked`:S.notifications.length,unknown?"warn":""],audit:[S.audit.chain.events]};
 }
 function renderNav(){
@@ -534,12 +570,14 @@ function mountTable(sel,id,rows,cols,o={}){const go=()=>{const t=table(id,rows,c
 function latestValidations(){
   const m={};S.validations.filter(v=>v.run_type!=="SOURCE_BASELINE").forEach(v=>{m[v.object]=v});return Object.values(m);
 }
-async function api(path,body){
-  const r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-  if(!r.ok){let m=r.statusText;try{m=(await r.json()).detail||m}catch(e){}throw new Error(m)}
+async function api(path,body,method="POST"){
+  const opts={method,headers:{"Content-Type":"application/json"}};if(body!=null)opts.body=JSON.stringify(body);
+  const r=await fetch(path,opts);
+  if(!r.ok){let m=r.statusText,errs=null;try{const d=(await r.json()).detail;if(typeof d==="string")m=d;else if(d&&d.errors){errs=d.errors;m="Check the highlighted fields."}}catch(e){}const e=new Error(m);e.errors=errs;throw e}
   return r.json();
 }
-async function refresh(flash){const r=await fetch("/api/v1/state");S=await r.json();render();if(flash)toast(flash)}
+async function refresh(flash){const r=await fetch("/api/v1/state"+pq());S=await r.json();render();if(flash)toast(flash)}
+async function switchTo(id){setPid(id);Object.keys(UI).forEach(k=>delete UI[k]);Object.keys(TS).forEach(k=>delete TS[k]);await refresh();location.hash="#overview";window.scrollTo(0,0)}
 function toast(f){const old=$(".toast");if(old)old.remove();const d=document.createElement("div");d.className=`flash ${f.k} toast`;d.setAttribute("role","status");
   d.innerHTML=`<div>${f.html}</div><button aria-label="Dismiss">×</button>`;d.querySelector("button").onclick=()=>d.remove();document.body.appendChild(d);setTimeout(()=>d.remove(),7000)}
 
@@ -557,16 +595,18 @@ function vOverview(){
   if(S.discovery.stats.conflicts)attn.push(["review",`${S.discovery.stats.conflicts} resources have conflicting evidence`,"Sources disagree on a configuration value. Confirm the intended state.","discovery","Resolve conflicts"]);
   attn.push(["review",`${S.conversions.length} converted artefacts awaiting code review`,`Average confidence ${k.avg_conversion_confidence}. Nothing is deployed until reviewed.`,"conversion","Open workbench"]);
   const noOwner=S.stakeholders.filter(s=>!s.verified);
-  if(noOwner.length)attn.push(["review",`${noOwner.length} applications have no verified owner`,noOwner.map(s=>s.application).join(", ")+". Notifications to them are blocked.","stakeholders","View owners"]);
-  const drafts=S.notifications.filter(n=>n.status==="DRAFT");
-  if(drafts.length)attn.push(["info",`${drafts.length} stakeholder emails drafted`,"Drafts wait for approval and are never sent automatically.","stakeholders","Read drafts"]);
+  if(noOwner.length)attn.push(["review",`${noOwner.length} application${noOwner.length>1?"s have":" has"} no verified owner`,noOwner.map(s=>s.application).join(", ")+". Notifications to them are blocked.","stakeholders","View owners"]);
+  const drafts=S.notifications.filter(n=>n.status==="DRAFT"&&n.delivery==="NOT_SENT"&&n.approval!=="APPROVED"&&n.approval!=="REJECTED");
+  if(drafts.length)attn.push(["info",`${drafts.length} stakeholder e-mail${drafts.length>1?"s":""} waiting for approval`,"Drafts are never sent automatically. Approve, send from your mail client, then record it.","stakeholders","Read drafts"]);
+  const obj=S.notifications.filter(n=>((n.tracking||{}).last_reply||{}).outcome==="OBJECTION");
+  if(obj.length)attn.unshift(["fail",`${obj.length} stakeholder repl${obj.length>1?"ies":"y"} raised an objection`,obj.map(n=>n.subject).join("; "),"stakeholders","Read replies"]);
   const stages=[
     ["Ingest",`${k.artefacts_uploaded} files received, ${k.artefacts_rejected} rejected as unsafe`,k.artefacts_rejected?tag("REVIEW",`${k.artefacts_rejected} rejected`):tag("PASS","Complete"),"uploads"],
     ["Discover",`${k.resources_discovered} resources, ${k.relationships} relationships`,k.conflicts?tag("REVIEW",`${k.conflicts} conflicts`):tag("PASS","Complete"),"discovery"],
     ["Map",`${k.mappings_approved} of ${k.mappings_total} approved`,k.mappings_approved<k.mappings_total?tag("REVIEW",`${k.mappings_total-k.mappings_approved} pending`):tag("PASS","Complete"),"mapping"],
     ["Convert",`${k.conversions} artefacts, avg confidence ${k.avg_conversion_confidence}`,tag("REVIEW","In review"),"conversion"],
     ["Load",run?`${fmt(run.totals.rows_loaded)} rows in ${k.batches_loaded} batches`:"Not started",run?tag("PASS","Loaded"):tag("NOT_RUN","Not started"),"loads"],
-    ["Validate",lv.map(v=>`${v.object.split(".").pop()} ${v.status.toLowerCase()}`).join(", "),lv.some(v=>v.status==="FAIL")?tag("FAIL","Failing"):tag("PASS","Passing"),"validation"],
+    ["Validate",lv.length?lv.map(v=>`${v.object.split(".").pop()} ${v.status.toLowerCase()}`).join(", "):"No data compared for this project",lv.length?(lv.some(v=>v.status==="FAIL")?tag("FAIL","Failing"):tag("PASS","Passing")):tag("NOT_RUN","Not run"),"validation"],
     ["Sign off",`${k.apps_total-k.apps_blocked} of ${k.apps_total} applications ready`,k.apps_blocked?tag("FAIL",`${k.apps_blocked} blocked`):tag("PASS","Ready"),"readiness"]];
   const sr=S.plan.strategy_summary, tot=Object.values(sr).reduce((a,b)=>a+b,0)||1;
   return head("overview",`${esc(S.project.customer)}. ${esc(S.project.source_cloud)} ${esc(S.project.aws_region)} to ${esc(S.project.target_cloud)} ${esc(S.project.gcp_region)}. Status ${esc(human(S.project.status).toLowerCase())}.`)+`
@@ -594,11 +634,11 @@ function stateTable(){
   const areas=[
     ["Service mappings",S.mappings.map(m=>m.approval_status),"mapping"],
     ["Discovered resources",S.discovery.resources.map(r=>r.evidence_status),"discovery"],
-    ["Dependencies",S.graph.edges.map(e=>e.status),"dependencies"],
+    ["Dependencies",S.graph.edges.map(e=>e.owner_status==="OWNER_REJECTED"?null:e.owner_status?"APPROVED":e.status),"dependencies"],
     ["Converted artefacts",S.conversions.map(()=>"PENDING"),"conversion"],
     ["Validation checks (latest runs)",res.map(r=>r.status),"validation"],
     ["Sign-off gates",Object.values(S.risk).flatMap(r=>r.gates.map(g=>g.status)),"readiness"],
-    ["Stakeholder emails",S.notifications.map(n=>n.status),"stakeholders"],
+    ["Stakeholder emails",S.notifications.map(n=>n.status!=="DRAFT"?n.status:n.approval==="CHANGED_SINCE_APPROVAL"?"PENDING":n.approval),"stakeholders"],
     ["Uploaded files",S.uploads.map(u=>u.status),"uploads"]];
   const keys=Object.keys(STATE5);
   const rows=areas.map(([n,vals,to])=>{const c=Object.fromEntries(keys.map(k=>[k,0]));vals.forEach(v=>{const k=state5(v);if(k)c[k]++});return [n,c,to]});
@@ -622,8 +662,12 @@ function vUploads(){
   const acc=u.filter(x=>x.status==="ACCEPTED").length;
   UI.upCat=UI.upCat||"all";
   return head("uploads","Inventory exports, infrastructure code, application code, diagrams and documents. Every file is type-checked, hashed and stored unchanged; unsafe files are rejected with a reason.")+`
-  ${LIVE?`<div class="drop" id="drop" tabindex="0" role="button" aria-label="Analyse a file"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M11 15V3M6 8l5-5 5 5M3 15v4h16v-4" fill="none" stroke="#4d5560" stroke-width="1.6"/></svg>
-    <div class="dt"><b>Analyse a file</b><div class="small sub">Terraform, CloudFormation, SQL, Python, Step Functions, IAM policy, inventory or diagram. The file is checked, parsed and converted as a preview; it is not added to the project.</div></div><button class="btn">Choose file</button><input type="file" id="file" hidden></div>`
+  ${LIVE&&!isSample()?`<div class="drop" id="pdrop" tabindex="0" role="button" aria-label="Add files to this project"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M11 15V3M6 8l5-5 5 5M3 15v4h16v-4" fill="none" stroke="#4d5560" stroke-width="1.6"/></svg>
+    <div class="dt"><b>Add files to this project</b><div class="small sub">Choose several files or a .zip. Each file is checked, hashed and stored unchanged. Unsafe files are rejected with a reason.</div></div><button class="btn" type="button" id="pchoose">Choose files</button><input type="file" id="pfiles" multiple hidden></div>
+   <div class="flash ${acc?"info":"info"}" style="margin-top:10px;align-items:center"><div>${acc?`${acc} accepted file${acc>1?"s":""} ready. ${(S.stages||{}).assessed?"Running the assessment again rebuilds the results from the current files; earlier mapping decisions are kept where the resource and target are unchanged.":"The assessment reads only these files."}`:"Add at least one accepted file to enable the assessment."}</div>
+    <button class="btn primary" type="button" id="runAssess" style="margin-left:auto" ${acc?"":"disabled"}>${(S.stages||{}).assessed?"Run assessment again":"Run assessment"}</button></div>`:""}
+  ${LIVE?`<div class="drop" id="drop" style="margin-top:${isSample()?0:12}px" tabindex="0" role="button" aria-label="Analyse a file"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M11 15V3M6 8l5-5 5 5M3 15v4h16v-4" fill="none" stroke="#4d5560" stroke-width="1.6"/></svg>
+    <div class="dt"><b>${isSample()?"Analyse a file":"Preview a file without adding it"}</b><div class="small sub">Terraform, CloudFormation, SQL, Python, Step Functions, IAM policy, inventory or diagram. The file is checked, parsed and converted as a preview; it is not added to the project.</div></div><button class="btn">Choose file</button><input type="file" id="file" hidden></div>`
    :`<div class="flash info"><div>File analysis needs the live API. This snapshot lists the files from the demo run.</div></div>`}
   <div class="metrics" style="margin:16px 0"><div><div class="v">${u.length}</div><div class="l">Files received</div></div><div><div class="v pass">${acc}</div><div class="l">Accepted</div></div><div><div class="v ${u.length-acc?"fail":""}">${u.length-acc}</div><div class="l">Rejected as unsafe</div></div><div><div class="v">${fmt(u.reduce((a,b)=>a+(b.size_bytes||0),0))}</div><div class="l">Bytes stored</div></div></div>
   <div class="split" id="upSplit"><div>
@@ -642,6 +686,20 @@ function bUploads(){
   $("#upQ").oninput=e=>{UI.upQ=e.target.value;draw()};
   draw();
   const sel=S.uploads.find(x=>x.id===UI.upSel);sel?upPanel(sel):(UI.upAna?anaPanel(UI.upAna):$("#upPanel").innerHTML=panelEmpty("Select a file to see its hash, storage location and checks."));
+  if(LIVE&&!isSample()){const pd=$("#pdrop"),pf=$("#pfiles");
+    const add=async fl=>{if(!fl.length)return;pd.style.opacity=".6";
+      try{const fd=new FormData();[...fl].forEach(f=>fd.append("files",f));
+        const r=await(await fetch(`/api/v1/projects/${encodeURIComponent(S.project.id)}/uploads`,{method:"POST",body:fd})).json();
+        if(r.detail)throw new Error(typeof r.detail==="string"?r.detail:"Upload failed");
+        const parts=[`${r.accepted} accepted`];if(r.duplicates)parts.push(`${r.duplicates} already added`);if(r.rejected)parts.push(`${r.rejected} rejected as unsafe`);
+        FLASH={k:r.rejected&&!r.accepted?"err":"ok",html:`Files processed: ${parts.join(", ")}.`};UI.upSt="all";await refresh()}
+      catch(e){pd.style.opacity="";toast({k:"err",html:`Upload failed: ${esc(e.message)}`})}};
+    $("#pchoose").onclick=e=>{e.stopPropagation();pf.click()};pd.onclick=e=>{if(e.target===pd||e.target.closest(".dt"))pf.click()};pd.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();pf.click()}};
+    pf.onchange=()=>add(pf.files);pd.ondragover=e=>{e.preventDefault();pd.classList.add("over")};pd.ondragleave=()=>pd.classList.remove("over");pd.ondrop=e=>{e.preventDefault();pd.classList.remove("over");add(e.dataTransfer.files)};
+    const ra=$("#runAssess");if(ra)ra.onclick=async()=>{ra.disabled=true;ra.textContent="Assessing";
+      try{const r=await(await fetch(`/api/v1/projects/${encodeURIComponent(S.project.id)}/assess`,{method:"POST"})).json();if(r.detail)throw new Error(typeof r.detail==="string"?r.detail:"Assessment failed");
+        await refresh();FLASH={k:"ok",html:`Assessment complete: ${r.resources} resources, ${r.mappings} service mappings, ${r.conversions} converted file${r.conversions===1?"":"s"}. ${r.decisions_carried_over?`${r.decisions_carried_over} earlier decision${r.decisions_carried_over>1?"s":""} kept; the rest are`:"All mappings are"} pending approval.`};location.hash="#overview"}
+      catch(e){ra.disabled=false;ra.textContent="Run assessment";toast({k:"err",html:`Assessment failed: ${esc(e.message)}`})}}}
   if(LIVE){const drop=$("#drop"),file=$("#file");
     const send=async f=>{$("#upPanel").innerHTML=panel(esc(f.name),"Analysing",`<p class="sub">Running type checks, extraction and conversion preview.</p>`);
       try{const fd=new FormData();fd.append("file",f);const r=await(await fetch("/api/v1/analyze",{method:"POST",body:fd})).json();UI.upAna=r;UI.upSel=null;draw();anaPanel(r)}
@@ -666,6 +724,115 @@ function anaPanel(r){
   const b=$("#anaShow");if(b)b.onclick=()=>show(c.converter,Object.entries(c.outputs).map(([k,v])=>`<h3 style="margin:8px 0 4px">${esc(k)}</h3>${codeBlock(v)}`).join("")+`<h3 style="margin:10px 0 4px">Warnings</h3>${list(c.warnings)}`);
 }
 function closeBind(sel,fn){const x=$(sel+" [data-close]");if(x)x.onclick=fn}
+
+/* ============================================================== data availability */
+const AV_CSV=()=>S.uploads.filter(u=>/\.(csv|tsv|txt)$/i.test(u.filename)&&(u.status==="ACCEPTED"||u.status==="DUPLICATE"));
+const APPS=()=>[...new Set(((S.discovery||{}).resources||[]).map(r=>r.application).filter(Boolean))].sort();
+const DEFAULT_APP=()=>{const a=APPS(),c=(S.project.config||{}).application;return a.includes(c)?c:a.length===1?a[0]:""};
+const appOpts=(cur,none="Not linked to an application")=>{const a=APPS();return `<option value="">${esc(none)}</option>`+a.map(x=>`<option value="${esc(x)}" ${x===cur?"selected":""}>${esc(x)}</option>`).join("")};
+const linked=a=>APPS().includes(a);
+function vAvail(){
+  const A=S.availability, sm=A.summary;
+  return head("availability","Before anything is converted: is the data this application needs already in Google Cloud, and does it cover the same dates? Each dataset compares a source file with a target file. Matching counts are evidence, not proof that every record is identical.",
+    LIVE&&!isSample()?`<button class="btn primary" id="avAdd">Add dataset</button>`:"")+`
+  ${!A.datasets.length?`<div class="flash info" style="flex-direction:column;gap:6px"><b>No datasets yet</b><div>${isSample()?"This sample has no datasets.":"Add two CSV files per dataset on Uploads (the source or its staging copy, and the target), then choose Add dataset. Nothing is compared until you do, and the readiness gate shows this as open."}</div></div>`:`
+  <div class="metrics" style="margin-bottom:16px"><div><div class="v">${sm.total}</div><div class="l">Datasets</div></div>
+   <div><div class="v pass">${sm.CLEAR}</div><div class="l">Clear</div></div>
+   <div><div class="v ${sm.NEEDS_CONFIRMATION?"review":""}">${sm.NEEDS_CONFIRMATION}</div><div class="l">Need owner confirmation</div></div>
+   <div><div class="v ${sm.NEEDS_DECISION?"fail":""}">${sm.NEEDS_DECISION+sm.HOLD}</div><div class="l">Need a decision</div></div>
+   <div><div class="v">${sm.PROCEED}</div><div class="l">Accepted by a person</div></div></div>
+  <div class="split"><div id="avTbl"></div><aside class="panel" id="avPanel"></aside></div>`}`;
+}
+function bAvail(){
+  const A=S.availability;
+  const add=$("#avAdd");if(add)add.onclick=avAddDlg;
+  if(!A.datasets.length)return;
+  const draw=()=>mountTable("#avTbl","tAv",A.datasets,[
+    {k:"name",l:"Dataset",r:x=>`<b style="font-weight:500">${esc(x.name)}</b><div class="small muted">${x.source_access==="DIRECT"?"Direct source":x.source_access==="STAGING_ONLY"?"Staging copy only":"No source access"}</div>${x.seeded?`<div>${seedTag("Sample data")}</div>`:""}`},
+    ...(new Set(A.datasets.map(x=>x.application)).size>1||A.datasets.some(x=>!linked(x.application))?[{k:"application",l:"Application",r:x=>linked(x.application)?esc(x.application):APPS().length?`<span class="small" style="color:var(--review)">Not linked</span>`:'<span class="small muted">Assess first</span>'}]:[]),
+    {k:"sr",l:"Rows, source / target",num:true,s:x=>(x.result&&x.result.source||{}).rows,r:x=>`<span class="nowrap">${fmt((x.result&&x.result.source||{}).rows)} / ${x.result&&x.result.target?fmt(x.result.target.rows):'<span class="muted">none</span>'}</span>`},
+    {k:"diff",l:"Difference",num:true,s:x=>x.result&&x.result.totals?x.result.totals.difference:null,r:x=>x.result&&x.result.totals?(x.result.totals.difference?`<span style="color:var(--fail);font-weight:600">${x.result.totals.difference>0?"+":""}${fmt(x.result.totals.difference)}</span>`:"0"):""},
+    {k:"res",l:"Check",s:x=>x.result&&x.result.status,r:x=>(x.result?st(x.result.status):st("NOT_RUN"))+(x.result&&x.result.drift?`<div class="small" style="color:var(--fail)">Columns changed</div>`:"")},
+    {k:"clearance",l:"Where it stands",r:x=>st(x.clearance)}],{onSelect:r=>{UI.avSel=r.id;draw();avPanel(r)},selected:UI.avSel,key:r=>r.id,empty:"No datasets."});
+  draw();const sel=A.datasets.find(x=>x.id===UI.avSel);sel?avPanel(sel):$("#avPanel").innerHTML=panelEmpty("Select a dataset to see the comparison, the evidence behind it, and what a person still has to do.");
+}
+function avPanel(d){
+  const r=d.result, c=d.confirmation||{}, dec=d.decision||{}, limited=d.source_access!=="DIRECT";
+  const months=r&&r.months&&r.months.length?`<h3>Rows by month</h3><div class="tw"><table><thead><tr><th>Month</th><th class="num">Source</th><th class="num">Target</th><th class="num">Difference</th></tr></thead><tbody>${r.months.map(m=>`<tr><td>${esc(m.month)}</td><td class="num">${fmt(m.source)}</td><td class="num">${fmt(m.target)}</td><td class="num" style="${m.difference?"color:var(--fail);font-weight:600":""}">${m.difference?(m.difference>0?"+":"")+fmt(m.difference):"0"}</td></tr>`).join("")}</tbody></table></div>`:"";
+  const csv=AV_CSV();
+  $("#avPanel").innerHTML=panel(esc(d.name),`${esc(d.access_text)}`,
+    (d.seeded?`<p class="small" style="margin-bottom:8px">${seedTag("Sample data")} ${esc(d.seeded)}</p>`:"")+
+    (r&&r.drift?`<div class="flash err" style="margin-bottom:8px"><div><b>Schema drift.</b> Since the check on ${esc(String(r.drift.since).replace("T"," ").slice(0,16))}${r.drift.since_files?` (${esc(r.drift.since_files.source)} vs ${esc(r.drift.since_files.target||"no target")})`:""}: ${["source","target"].filter(k=>r.drift[k]).map(k=>`${k} ${r.drift[k].added.length?`added ${esc(r.drift[k].added.join(", "))}`:""}${r.drift[k].added.length&&r.drift[k].removed.length?" and ":""}${r.drift[k].removed.length?`removed ${esc(r.drift[k].removed.join(", "))}`:""}`).join("; ")}. Check that the load and any downstream reports still expect these columns.</div></div>`:"")+
+    (!linked(d.application)&&APPS().length?`<div class="flash warn" style="margin-bottom:8px"><div>This dataset is not linked to any application the assessment found${d.application?` (it says "${esc(d.application)}")`:""}, so it does not count toward any readiness gate. Link it below.</div></div>`:"")+
+    kv([["Application",linked(d.application)?esc(d.application):APPS().length?`<span style="color:var(--review)">Not linked</span>`:'<span class="muted">Linked after the assessment runs</span>'],["Check",r?st(r.status):st("NOT_RUN")],["Where it stands",st(d.clearance)],["Why",esc(d.clearance_reason)],["Source file",esc(d.source_label)],["Target file",esc(d.target_label||"None supplied")],
+      ["Date column",esc(d.date_column||"Not set, totals only")],["Key column",esc(d.key_column||"Not set")],["Evidence",r?esc(r.evidence):""],["Checked",r?esc(String(r.checked_at).replace("T"," ").slice(0,19)):""]])+
+    (r?`<p class="small" style="margin:8px 0">${esc(r.summary)}</p>${list(r.issues,"No differences found.")}${(r.notes||[]).map(n=>`<p class="small muted">${esc(n)}</p>`).join("")}
+      ${r.missing_day_count?`<h3>Days missing in the target</h3><p class="small mono">${esc(r.missing_days.join(", "))}${r.missing_day_count>r.missing_days.length?` and ${r.missing_day_count-r.missing_days.length} more`:""}</p>`:""}
+      ${r.keys?`<h3>Keys</h3>${kv([["Source keys",fmt(r.keys.source)],["Target keys",fmt(r.keys.target)],["Missing in target",fmt(r.keys.missing_in_target)],["Only in target",fmt(r.keys.extra_in_target)],["Examples missing",r.keys.sample_missing.length?`<span class="mono small">${esc(r.keys.sample_missing.join(", "))}</span>`:""]])}`:""}
+      ${r.schema&&(r.schema.missing_in_target.length||r.schema.extra_in_target.length)?`<h3>Columns</h3>${kv([["Missing in target",esc(r.schema.missing_in_target.join(", "))],["Only in target",esc(r.schema.extra_in_target.join(", "))]])}`:""}${months}`:"")+
+    (limited?`<h3>Source owner confirmation</h3><p class="small sub" style="margin-bottom:6px">The original source cannot be seen, so a missing file cannot be ruled out. Only the owner can confirm it.</p>
+      ${kv([["Status",c.status?st(c.status==="CONFIRMED"?"CONFIRMED":c.status==="REQUESTED"?"PENDING":"REVIEW",human(c.status)):st("NOT_RUN","Not requested")],["Owner",esc(d.owner_name?`${d.owner_name}${d.owner_email?" ("+d.owner_email+")":""}`:"Not recorded")],["Confirmed by",esc(c.confirmed_by)],["Said",esc(c.note)],["Draft e-mail",c.requested_at?esc(c.draft_status==="DRAFT"?"Drafted, not sent. See Stakeholders.":"Not generated: no owner e-mail recorded"):""]])}
+      ${LIVE?`<div class="form"><p><button class="btn" id="avAsk">${c.requested_at?"Draft the e-mail again":"Draft owner e-mail"}</button></p>
+       <h3 style="margin:10px 0 6px">Record the owner's reply</h3>
+       <label class="fld"><span>Who replied</span><input type="text" id="avCWho" placeholder="Name and role"></label>
+       <label class="fld"><span>What they said</span><textarea id="avCNote" rows="2" style="width:100%;height:auto;padding:6px 8px" placeholder="For example: all 30 daily files for January are uploaded"></textarea></label>
+       <div class="row"><button class="btn" id="avConf">Owner confirms all files</button><button class="btn" id="avMiss">Owner reports missing files</button></div></div>`:roNote("Asking the owner")}`:"")+
+    `<h3>Decision</h3>${dec.decision?kv([["Decision",st(dec.decision==="PROCEED"?"PROCEED":"HOLD")],["By",esc(dec.approver)],["Reason",esc(dec.rationale)],["Recorded",esc(String(dec.at).replace("T"," ").slice(0,19))]]):'<p class="small muted">No decision recorded.</p>'}
+    ${LIVE&&r&&["DISCREPANCY","MISSING","CANNOT_CHECK"].includes(r.status)?`<div class="form"><h3 style="margin:0 0 4px">Record a decision</h3><p class="small muted" style="margin-bottom:8px">A difference does not have to stop the migration. Proceeding is a person's call, and it is written to the audit log with the reason. It lapses if the data changes.</p>
+      <label class="fld"><span>Your name and role</span><input type="text" id="avWho" autocomplete="name"></label>
+      <label class="fld"><span>Reason (at least 10 characters)</span><textarea id="avWhy" rows="2" style="width:100%;height:auto;padding:6px 8px"></textarea></label>
+      <div class="row"><button class="btn primary" id="avGo">Proceed anyway</button><button class="btn" id="avHold">Hold</button></div></div>`:""}
+    ${LIVE?`<div class="form"><h3 style="margin:0 0 6px">Re-check</h3>${!isSample()?`<label class="fld"><span>Source file</span><select id="avSrc">${csv.map(u=>`<option value="${esc(u.id)}" ${d.source_label===u.filename?"selected":""}>${esc(u.filename)}</option>`).join("")}</select><small>Pick a newer copy of the source to see whether its columns changed.</small></label><label class="fld"><span>Target file</span><select id="avTgt"><option value="">No target yet</option>${csv.map(u=>`<option value="${esc(u.id)}" ${d.target_label===u.filename?"selected":""}>${esc(u.filename)}</option>`).join("")}</select></label>`:""}
+      <p><button class="btn" id="avRe">${!isSample()?"Use these files and check again":"Check again"}</button></p><div class="small" style="color:var(--fail)" id="avErr"></div></div>`:""}
+    ${LIVE&&!isSample()&&APPS().length?`<div class="form"><h3 style="margin:0 0 6px">Application</h3><p class="small muted" style="margin-bottom:6px">The readiness gate for this application counts this dataset.</p>
+      <div class="row"><select id="avApp" style="flex:1">${appOpts(linked(d.application)?d.application:"")}</select><button class="btn" id="avAppGo">Link</button></div></div>`:""}
+    `);
+  closeBind("#avPanel",()=>{UI.avSel=null;bAvail()});
+  const act=async(path,body,msg,btn)=>{const err=$("#avErr")||{};try{if(btn)btn.disabled=true;await api(path,body);await refresh({k:"ok",html:msg})}catch(e){if(btn)btn.disabled=false;toast({k:"err",html:esc(e.message)})}};
+  const g=id=>$("#"+id);
+  if(g("avAsk"))g("avAsk").onclick=e=>act(`/api/v1/availability/${d.id}/request-confirmation`,{},"Owner e-mail drafted. It has not been sent; find it on Stakeholders.",e.target);
+  const conf=o=>e=>{const who=g("avCWho").value.trim(),note=g("avCNote").value.trim();if(!who||!note){toast({k:"err",html:"Enter who replied and what they said."});return}act(`/api/v1/availability/${d.id}/confirm`,{confirmer:who,note,outcome:o},o==="CONFIRMED"?"Owner confirmation recorded.":"Reported missing files recorded. The dataset stays unconfirmed.",e.target)};
+  if(g("avConf"))g("avConf").onclick=conf("CONFIRMED");if(g("avMiss"))g("avMiss").onclick=conf("REPORTED_MISSING");
+  const decide=v=>e=>{const who=g("avWho").value.trim(),why=g("avWhy").value.trim();if(!who||why.length<10){toast({k:"err",html:"Enter your name and a reason of at least 10 characters."});return}act(`/api/v1/availability/${d.id}/decision`,{approver:who,decision:v,rationale:why},v==="PROCEED"?"Decision recorded: proceeding despite the difference.":"Decision recorded: on hold.",e.target)};
+  if(g("avGo"))g("avGo").onclick=decide("PROCEED");if(g("avHold"))g("avHold").onclick=decide("HOLD");
+  if(g("avAppGo"))g("avAppGo").onclick=e=>act(`/api/v1/availability/${d.id}/application`,{application:g("avApp").value},g("avApp").value?`Linked to ${esc(g("avApp").value)}.`:"Unlinked.",e.target);
+  if(g("avRe"))g("avRe").onclick=async e=>{if(isSample())return act(`/api/v1/availability/${d.id}/check`,{},"Check run again.",e.target);
+    const srcId=g("avSrc").value, cur=(csv.find(u=>u.filename===d.source_label)||{}).id;
+    try{e.target.disabled=true;if(srcId&&srcId!==cur)await api(`/api/v1/availability/${d.id}/source`,{source_upload:srcId,target_upload:g("avTgt").value});else await api(`/api/v1/availability/${d.id}/target`,{target_upload:g("avTgt").value});
+      await refresh({k:"ok",html:"Files updated and checked again."})}catch(er){e.target.disabled=false;toast({k:"err",html:esc(er.message)})}};
+}
+function avAddDlg(){
+  const csv=AV_CSV(), opt=(l)=>csv.map(u=>`<option value="${esc(u.id)}">${esc(u.filename)}</option>`).join("");
+  if(!csv.length){show("Add dataset",`<div class="flash info"><div>No CSV files in this project yet. Add the source and target files on Uploads first.</div></div><p><a class="btn" href="#uploads" onclick="$('#dlg').close()">Go to Uploads</a></p>`);return}
+  show("Add dataset",`<form id="avForm" novalidate><div id="avFErr"></div>
+   <label class="fld"><span>Dataset name (required)</span><input type="text" name="name" placeholder="analytics.orders"></label>
+   ${APPS().length?`<label class="fld"><span>Application</span><select name="application">${appOpts(DEFAULT_APP(),"Not linked yet")}</select><small>Which application's readiness gate this dataset counts toward. Names come from the assessment.</small></label>`:`<p class="small muted" style="margin-bottom:8px">Run the assessment first to link datasets to applications. Until then this dataset is not counted by any readiness gate.</p>`}
+   <label class="fld"><span>Source file (required)</span><select name="source_upload"><option value="">Choose a file</option>${opt()}</select><small>The AWS side, or its staging copy.</small></label>
+   <label class="fld"><span>Target file</span><select name="target_upload"><option value="">Not in Google Cloud yet</option>${opt()}</select><small>Leave empty if nothing has been copied yet; the dataset is then reported as missing.</small></label>
+   <label class="fld"><span>Can the team see the original source?</span><select name="source_access"><option value="DIRECT">Yes, directly</option><option value="STAGING_ONLY">No, only this staging copy</option></select></label>
+   <div class="fgrid"><label class="fld"><span>Date column</span><input type="text" name="date_column" placeholder="order_date"><small>Business date, ISO format (2025-01-31).</small></label>
+   <label class="fld"><span>Key column</span><input type="text" name="key_column" placeholder="order_id"><small>Optional. Adds a missing-key check.</small></label>
+   <label class="fld"><span>Range start</span><input type="text" name="range_start" placeholder="2025-01-01"></label><label class="fld"><span>Range end</span><input type="text" name="range_end" placeholder="2025-12-31"></label>
+   <label class="fld"><span>Source owner</span><input type="text" name="owner_name" placeholder="Name and team"></label><label class="fld"><span>Owner e-mail</span><input type="text" name="owner_email" placeholder="name@company.com"><small>Needed to draft the confirmation e-mail.</small></label></div>
+   <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button class="btn" type="button" onclick="$('#dlg').close()">Cancel</button><button class="btn primary" type="submit" id="avFGo">Add and check</button></div></form>`);
+  $("#avForm").onsubmit=async e=>{e.preventDefault();const b={};new FormData(e.target).forEach((v,k)=>b[k]=String(v).trim());
+    if(b.name.length<2||!b.source_upload){$("#avFErr").innerHTML=`<div class="flash err"><div>Enter a name and choose the source file.</div></div>`;return}
+    $("#avFGo").disabled=true;try{await api(`/api/v1/projects/${encodeURIComponent(S.project.id)}/availability/datasets`,b);$("#dlg").close();UI.avSel=null;await refresh({k:"ok",html:"Dataset added and checked."})}
+    catch(er){$("#avFGo").disabled=false;$("#avFErr").innerHTML=`<div class="flash err"><div>${esc(er.message)}</div></div>`}};
+}
+function ownerDlg(application){
+  const cur=S.stakeholders.find(s=>s.application===application)||{};
+  show(`Owner for ${application}`,`<form id="ownForm" novalidate><div id="ownErr"></div>
+   <label class="fld"><span>Name (required)</span><input type="text" name="name" value="${esc(cur.owner_source&&cur.owner_source.startsWith("Entered manually")?cur.name:"")}"></label>
+   <label class="fld"><span>E-mail</span><input type="text" name="email" placeholder="name@company.com"></label>
+   <label class="fld"><span>Role</span><select name="type"><option value="BUSINESS_OWNER">Business owner</option><option value="TECHNICAL_OWNER">Technical owner</option><option value="DOWNSTREAM_CONSUMER">Downstream consumer</option></select></label>
+   <p class="small muted">This is recorded as a manual entry and takes priority over the ownership directory for this application until cleared.</p>
+   <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button class="btn" type="button" onclick="$('#dlg').close()">Cancel</button><button class="btn primary" type="submit" id="ownGo">Save owner</button></div></form>`);
+  $("#ownForm").onsubmit=async e=>{e.preventDefault();const b={};new FormData(e.target).forEach((v,k)=>b[k]=String(v).trim());
+    if(b.name.length<2){$("#ownErr").innerHTML=`<div class="flash err"><div>Enter the owner's name.</div></div>`;return}
+    $("#ownGo").disabled=true;try{await api(`/api/v1/projects/${encodeURIComponent(S.project.id)}/applications/${encodeURIComponent(application)}/owner`,b);$("#dlg").close();await refresh({k:"ok",html:`Owner recorded for ${esc(application)}.`})}
+    catch(er){$("#ownGo").disabled=false;$("#ownErr").innerHTML=`<div class="flash err"><div>${esc(er.message)}</div></div>`}};
+}
 
 /* ============================================================== 3 discovery */
 function vDiscovery(){
@@ -714,18 +881,30 @@ function dPanel(r){
 
 /* ============================================================== 4 dependencies */
 function vDeps(){
+  UI.dTab=UI.dTab||"graph";
+  const apps=[...new Set(S.graph.nodes.map(n=>n.application).filter(Boolean))];
+  const unsure=S.graph.edges.filter(e=>e.flow==="UNCONFIRMED").length;
+  return head("dependencies",`How data and calls flow between resources, from upstream sources on the left to downstream consumers on the right. Inferred links come from diagrams, documents or code references; an owner confirms which way data flows, or that a link is not real.`)+
+  tabs("dTabs",[["graph","Graph",S.graph.edges.length],["apps","Applications",apps.length]],UI.dTab)+
+  (unsure?`<p class="small" style="margin:-4px 0 10px;color:var(--review)">${unsure} inferred link${unsure===1?"":"s"} still need${unsure===1?"s":""} an owner's answer. Select a resource to record it.</p>`:"")+`<div id="dBody"></div>`;
+}
+function depGraphHtml(){
   const apps=[...new Set(S.graph.nodes.map(n=>n.application).filter(Boolean))].sort();
   const inf=S.graph.edges.filter(e=>e.status!=="CONFIRMED").length;
-  return head("dependencies",`How data and calls flow between resources, from upstream sources on the left to downstream consumers on the right. Inferred links come from diagrams, documents or code references and need owner confirmation.`)+`
-  <div class="toolbar"><label class="inline">Application <select id="gApp"><option value="">All applications</option>${apps.map(a=>`<option ${UI.gApp===a?"selected":""}>${esc(a)}</option>`).join("")}</select></label>
+  return `<div class="toolbar"><label class="inline">Application <select id="gApp"><option value="">All applications</option>${apps.map(a=>`<option ${UI.gApp===a?"selected":""}>${esc(a)}</option>`).join("")}</select></label>
    <span class="small muted">Select a resource to trace its links. Drag to pan, scroll to zoom.</span><label class="inline"><input type="checkbox" id="gInf" ${UI.gInf!==false?"checked":""}> Show inferred links (${inf})</label><span class="grow"></span>
-   <div class="legend"><span><i style="background:#9aa3ad"></i>Confirmed</span><span><i style="background:repeating-linear-gradient(90deg,#c98a1a 0 4px,transparent 4px 7px)"></i>Inferred</span><span><i style="background:var(--ink);height:8px;width:8px"></i>Consumer</span><span><i style="border:1px dashed var(--fail);height:8px;width:12px"></i>Unresolved</span></div></div>
+   <div class="legend"><span><i style="background:#9aa3ad"></i>Confirmed</span><span><i style="background:#1f5aa6"></i>Owner-confirmed</span><span><i style="background:repeating-linear-gradient(90deg,#c98a1a 0 4px,transparent 4px 7px)"></i>Inferred</span><span><i style="background:repeating-linear-gradient(90deg,#c0392b 0 2px,transparent 2px 5px)"></i>Not a real link</span><span><i style="background:var(--pass);height:8px;width:8px"></i>On Google Cloud</span><span><i style="background:var(--ink);height:8px;width:8px"></i>Consumer</span></div></div>
   <div class="split wide" id="gSplit"><div class="graphwrap" id="gWrap"><svg id="graph" role="img" aria-label="Dependency graph"></svg>
    <div class="gzoom"><button id="zIn" aria-label="Zoom in">+</button><button id="zOut" aria-label="Zoom out">−</button><button id="zFit" aria-label="Fit to view">Fit</button></div></div>
    <aside class="panel" id="gPanel"></aside></div>`;
 }
 const G={x:0,y:0,k:1};
-function bDeps(){
+function bDeps(){onTabs("dTabs",v=>{UI.dTab=v;depBody()});depBody()}
+function depBody(){
+  if(UI.dTab==="apps"){$("#dBody").innerHTML=`<div class="split"><div id="daTbl"></div><aside class="panel" id="daPanel"></aside></div>`;bDepApps();return}
+  $("#dBody").innerHTML=depGraphHtml();bGraph();
+}
+function bGraph(){
   $("#gApp").onchange=e=>{UI.gApp=e.target.value;UI.gSel=null;drawGraph(true)};
   $("#gInf").onchange=e=>{UI.gInf=e.target.checked;drawGraph(false)};
   const wrap=$("#gWrap"), svg=$("#graph");
@@ -743,7 +922,8 @@ function fitG(anim){const v=$("#gView"),w=$("#gWrap");if(!v||!w)return;const b=v
   const k=Math.max(.7,Math.min(1.1,(W-40)/b.width,(H-40)/b.height));G.k=k;G.x=Math.max(20,(W-b.width*k)/2)-b.x*k;G.y=20-b.y*k;applyG(anim)}
 function drawGraph(fit){
   const svg=$("#graph");if(!svg)return;const app=UI.gApp||"", showInf=UI.gInf!==false;
-  let nodes=S.graph.nodes, edges=S.graph.edges.filter(e=>showInf||e.status==="CONFIRMED");
+  let nodes=S.graph.nodes, edges=S.graph.edges.filter(e=>showInf||e.status==="CONFIRMED"||(e.owner_status&&e.owner_status!=="OWNER_REJECTED"))
+    .map(e=>(e.flow==="REVERSE"||(e.flow==="UNCONFIRMED"&&e.flow_default==="REVERSE"))?{...e,source:e.target,target:e.source}:e);   // arrows follow the data
   if(app){const keep=new Set(nodes.filter(n=>n.application===app).map(n=>n.id));edges.forEach(e=>{if(keep.has(e.source)||keep.has(e.target)){keep.add(e.source);keep.add(e.target)}});
     nodes=nodes.filter(n=>keep.has(n.id));edges=edges.filter(e=>keep.has(e.source)&&keep.has(e.target))}
   const linked=new Set(edges.flatMap(e=>[e.source,e.target]));nodes=nodes.filter(n=>linked.has(n.id)||app);
@@ -763,12 +943,14 @@ function drawGraph(fit){
   keys.forEach((c,ci)=>{g+=`<text class="gcolhd" x="${ci*CW}" y="14">${esc(colName(c,ci))}</text>`});
   edges.forEach((e,i)=>{const a=pos[e.source],b=pos[e.target];if(!a||!b)return;const x1=a.x+NW,y1=a.y+NH/2,x2=b.x-2,y2=b.y+NH/2,m=x1+(x2-x1)/2;
     const back=x2<=x1;const d=back?`M${x1},${y1} C${x1+60},${y1} ${x2-60},${y2} ${x2},${y2}`:`M${x1},${y1} C${m},${y1} ${m},${y2} ${x2},${y2}`;
-    g+=`<path class="ge ${e.status==="CONFIRMED"?"":"inferred"}" data-s="${esc(e.source)}" data-t="${esc(e.target)}" d="${d}" marker-end="url(#ar)"><title>${esc(e.source)} ${esc(human(e.type).toLowerCase())} ${esc(e.target)} (${esc(human(e.status).toLowerCase())})</title></path>`});
+    const cls=e.flow==="REJECTED"?"rejected":e.flow==="UNCONFIRMED"?"inferred":e.owner_status?"owner":"";
+    g+=`<path class="ge ${cls}" data-s="${esc(e.source)}" data-t="${esc(e.target)}" d="${d}" marker-end="url(#ar)"><title>${esc(e.source)} ${esc(human(e.type).toLowerCase())} ${esc(e.target)} (${esc((LABEL[e.owner_status]||human(e.status)).toLowerCase())})</title></path>`});
   nodes.forEach(n=>{const p=pos[n.id];if(!p)return;const lab=String(n.label);const l1=lab.length>23?lab.slice(0,22)+"…":lab;
     const l2=n.kind==="aws_resource"?`${n.service} → ${n.gcp_target||"?"}`:n.kind==="unresolved"?"Unresolved reference":"Consumer";const l2s=l2.length>28?l2.slice(0,27)+"…":l2;
     const tone=n.strategy==="Retire"||n.strategy==="Retain"?"#9aa3ad":n.criticality==="High"?"#20242a":"#77808b";
     g+=`<g class="gn ${n.kind==="consumer"?"consumer":n.kind==="unresolved"?"unresolved":""}" data-id="${esc(n.id)}" tabindex="0" role="button" aria-label="${esc(lab)}" style="cursor:pointer"><title>${esc(lab)}${n.application?" · "+esc(n.application):""}</title>
      <rect class="body" x="${p.x}" y="${p.y}" width="${NW}" height="${NH}" rx="2"/>${n.kind==="consumer"?"":`<rect x="${p.x}" y="${p.y}" width="3" height="${NH}" fill="${tone}"/>`}
+     ${n.migration_status==="MIGRATED"||n.migration_status==="IN_PROGRESS"?`<rect x="${p.x+NW-12}" y="${p.y+6}" width="7" height="7" fill="${n.migration_status==="MIGRATED"?"var(--pass)":"var(--review)"}"><title>${esc(APP_ST[n.migration_status])}</title></rect>`:""}
      <text class="t1" x="${p.x+12}" y="${p.y+18}">${esc(l1)}</text><text class="t2" x="${p.x+12}" y="${p.y+35}">${esc(l2s)}</text></g>`});
   svg.innerHTML=g+"</g>";
   $$(".gn",svg).forEach(el=>{const f=()=>{UI.gSel=el.dataset.id;solo(false);hiGraph();gPanel(el.dataset.id)};el.onclick=f;el.onkeydown=e=>{if(e.key==="Enter")f()}});
@@ -789,8 +971,91 @@ function gPanel(id){
     `<h3>Depends on</h3>${up.length?`<ul>${up.map(x=>`<li>${esc(lbl(x))}</li>`).join("")}</ul>`:'<p class="small muted">Nothing upstream.</p>'}
      <h3>Used by</h3>${down.length?`<ul>${down.map(x=>`<li>${esc(lbl(x))}</li>`).join("")}</ul>`:'<p class="small muted">Nothing downstream.</p>'}
      ${im&&im.impacted_applications&&im.impacted_applications.length?`<h3>Applications affected by a change</h3><p class="small">${esc(im.impacted_applications.join(", "))}</p>`:""}
-     <h3>Owners</h3>${owners.length?owners.map(o=>`<div style="margin-bottom:6px">${st(o.verified?"PASS":"FAIL",o.verified?"Verified":"Not verified")} <b style="font-weight:500">${esc(o.name)}</b> <span class="small muted">${esc(o.type)}</span><div class="small">${esc(o.email||"")}</div></div>`).join(""):'<p class="small muted">No owner in the directory. Ask the CMDB team to add one.</p>'}`);
+     <h3>Owners</h3>${owners.length?owners.map(o=>`<div style="margin-bottom:6px">${st(o.verified?"PASS":"FAIL",o.verified?"Verified":"Not verified")} <b style="font-weight:500">${esc(o.name)}</b> <span class="small muted">${esc(o.type)}</span><div class="small">${esc(o.email||"")}</div></div>`).join(""):'<p class="small muted">No owner in the directory. Ask the CMDB team to add one.</p>'}
+     ${n.application?`<h3>Migration status of ${esc(n.application)}</h3><p class="small">${st(appSt(n.application),APP_ST[appSt(n.application)])} <a href="#dependencies" id="gToApps" style="margin-left:6px">Change on Applications</a></p>`:""}
+     <h3>Links</h3>${linkRows(id)}`);
   closeBind("#gPanel",()=>{UI.gSel=null;drawGraph(false)});
+  const ta=$("#gToApps");if(ta)ta.onclick=e=>{e.preventDefault();UI.dTab="apps";UI.daSel=n.application;render()};
+  $("#gPanel").querySelectorAll("[data-edge]").forEach(b=>b.onclick=()=>edgeDlg(S.graph.edges[+b.dataset.edge]));
+}
+const nodeLbl=x=>{const m=S.graph.nodes.find(y=>y.id===x);return m?m.label:x};
+function flowText(e){
+  const a=nodeLbl(e.source),b=nodeLbl(e.target);
+  if(e.flow==="REJECTED")return `<span style="text-decoration:line-through" class="muted">${esc(a)} → ${esc(b)}</span>`;
+  const f=e.flow==="UNCONFIRMED"?e.flow_default:e.flow;const [x,y]=f==="REVERSE"?[b,a]:[a,b];
+  return `${esc(x)} → ${esc(y)}${e.flow==="UNCONFIRMED"?' <span class="small muted">(direction not confirmed)</span>':""}`;
+}
+function linkRows(id){
+  const es=S.graph.edges.map((e,i)=>({...e,_i:i})).filter(e=>e.source===id||e.target===id);
+  if(!es.length)return '<p class="small muted">No links.</p>';
+  return es.map(e=>`<div class="lrow"><div class="lhd"><span class="small">${flowText(e)}</span>${LIVE?`<button class="btn sm" data-edge="${e._i}">${e.owner_status?"Change":"Record answer"}</button>`:""}</div>
+    <div class="small muted">${esc(human(e.type).toLowerCase())} · ${st(e.status)}${e.owner_status?` · ${st(e.owner_status)}`:""}</div>
+    ${e.owner_status?`<div class="small">${esc(e.owner_by)}: ${esc(e.owner_note)}</div>`:""}</div>`).join("");
+}
+function edgeDlg(e){
+  const a=nodeLbl(e.source),b=nodeLbl(e.target);
+  const fwd=e.flow_default==="FORWARD", opt=(v,txt)=>`<label class="inline" style="display:flex;gap:8px;margin-bottom:6px"><input type="radio" name="outcome" value="${v}" ${e.owner_status===v?"checked":""}> ${txt}</label>`;
+  show("Owner's answer about this link",`<form id="edForm" novalidate><div id="edErr"></div>
+    <p class="small muted" style="margin-bottom:8px">${esc(human(e.type))} link between <b style="font-weight:500">${esc(a)}</b> and <b style="font-weight:500">${esc(b)}</b>, ${e.status==="CONFIRMED"?"from a confirmed source":"inferred"}. Record what the owner said.</p>
+    ${opt(fwd?"OWNER_CONFIRMED":"OWNER_REVERSED",`Data flows from ${esc(a)} to ${esc(b)}`)}
+    ${opt(fwd?"OWNER_REVERSED":"OWNER_CONFIRMED",`Data flows from ${esc(b)} to ${esc(a)}`)}
+    ${opt("OWNER_REJECTED","Not a real link: neither reads the other")}
+    <label class="fld" style="margin-top:8px"><span>Owner's name</span><input type="text" name="by"></label>
+    <label class="fld"><span>What they said</span><textarea name="note" rows="2" style="width:100%;height:auto;padding:6px 8px"></textarea></label>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px">${e.owner_status?`<button class="btn" type="button" id="edClear" style="margin-right:auto">Clear the answer</button>`:""}<button class="btn" type="button" onclick="$('#dlg').close()">Cancel</button><button class="btn primary" type="submit" id="edGo">Save</button></div></form>`);
+  const send=async(body,btn)=>{btn.disabled=true;try{await api(`/api/v1/projects/${encodeURIComponent(S.project.id)}/dependencies/confirm`,{source:e.source,target:e.target,...body});$("#dlg").close();await refresh({k:"ok",html:"Owner's answer recorded. Gates re-checked."})}
+    catch(er){btn.disabled=false;$("#edErr").innerHTML=`<div class="flash err"><div>${esc(er.message)}</div></div>`}};
+  $("#edForm").onsubmit=ev=>{ev.preventDefault();const f=new FormData(ev.target);if(!f.get("outcome")){$("#edErr").innerHTML=`<div class="flash err"><div>Choose one of the three answers.</div></div>`;return}
+    send({outcome:f.get("outcome"),by:String(f.get("by")),note:String(f.get("note"))},$("#edGo"))};
+  const c=$("#edClear");if(c)c.onclick=()=>send({outcome:"CLEAR",by:"console.user",note:""},c);
+}
+
+/* ------------------------------------------------- dependencies: applications (Round 6) */
+function bDepApps(){
+  const apps=[...new Set(S.graph.nodes.map(n=>n.application).filter(Boolean))].sort();
+  const down=S.downstream_apps||{}, upOf=a=>apps.filter(x=>(down[x]||[]).includes(a));
+  const rows=apps.map(a=>({application:a,status:appSt(a),down:down[a]||[],up:upOf(a),inProject:!!S.risk[a],
+    unsure:S.graph.edges.filter(e=>e.flow==="UNCONFIRMED"&&[e.source,e.target].some(x=>(S.graph.nodes.find(n=>n.id===x)||{}).application===a)).length}));
+  const draw=()=>mountTable("#daTbl","tDa",rows,[
+    {k:"application",l:"Application",r:x=>`<b style="font-weight:500">${esc(x.application)}</b>${x.inProject?"":'<div class="small muted">Outside this assessment</div>'}`},
+    {k:"status",l:"Where it runs",r:x=>st(x.status,APP_ST[x.status])},
+    {k:"down",l:"Reads its data",s:x=>x.down.length,r:x=>x.down.length?esc(x.down.join(", ")):'<span class="muted small">None found</span>'},
+    {k:"unsure",l:"Links to confirm",num:true,r:x=>x.unsure?`<span style="color:var(--review);font-weight:600">${x.unsure}</span>`:"0"}],
+    {onSelect:r=>{UI.daSel=r.application;draw();daPanel(r)},selected:UI.daSel,key:r=>r.application,sort:"application"});
+  draw();const sel=rows.find(r=>r.application===UI.daSel);sel?daPanel(sel):$("#daPanel").innerHTML=panelEmpty("Select an application to record where it runs and, for applications that read its data, whether a bridge was agreed.");
+}
+function daPanel(x){
+  const rec=(S.app_status||{})[x.application], rk=S.risk[x.application], brid=(S.bridges||[]).filter(b=>b.source===x.application);
+  const gate=rk?rk.gates.find(g=>g.gate==="DOWNSTREAM_READY"):null, pid=encodeURIComponent(S.project.id), app=encodeURIComponent(x.application);
+  const next=x.status==="NOT_STARTED"?["IN_PROGRESS","Record cutover started"]:x.status==="IN_PROGRESS"?["MIGRATED","Record cutover complete"]:null;
+  const canStart=!rk||rk.readiness==="SIGNED_OFF"||x.status!=="NOT_STARTED";
+  $("#daPanel").innerHTML=panel(esc(x.application),st(x.status,APP_ST[x.status]),
+    kv([["Readiness",rk?st(rk.readiness):'<span class="small muted">Not assessed here: record what its team tells you</span>'],["Last change",rec?`${esc(rec.updated_by)}, ${esc(String(rec.updated_at).replace("T"," ").slice(0,16))}`:""],["Note",esc(rec?rec.note:"")],
+      ["Downstream gate",gate?`${st(gate.status)}<div class="small">${esc(gate.detail)}</div>`:""],["Reads from it",esc(x.down.join(", "))],["It reads from",esc(x.up.join(", "))]])+
+    (LIVE?`<div class="form"><h3 style="margin:0 0 6px">Where it runs</h3>
+      ${rk&&!canStart?`<p class="small" style="color:var(--review);margin-bottom:6px">Cutover can be recorded as started only after business and technical sign-off. It is ${esc((LABEL[rk.readiness]||human(rk.readiness)).toLowerCase())} now.</p>`:""}
+      <p class="small muted" style="margin-bottom:6px">Recording a start or a completion drafts "Migration started" or "Migration completed" e-mails to this application's owner and to the owners of every application that reads its data. They appear on Stakeholders for approval.</p>
+      <label class="fld"><span>New status</span><select id="daSt">${Object.entries(APP_ST).filter(([k])=>k!==x.status).map(([k,v])=>`<option value="${k}" ${next&&next[0]===k?"selected":""}>${esc(v)}${k==="NOT_STARTED"&&x.status!=="NOT_STARTED"?" (rolled back)":""}</option>`).join("")}</select></label>
+      <label class="fld"><span>Recorded by</span><input type="text" id="daBy" autocomplete="name"></label>
+      <label class="fld"><span>What happened, or who told you (at least 10 characters)</span><textarea id="daNote" rows="2" style="width:100%;height:auto;padding:6px 8px"></textarea></label>
+      <p><button class="btn primary" id="daGo">Save status</button></p><div class="small" style="color:var(--fail)" id="daErr"></div></div>`:roNote("Recording migration status"))+
+    (x.down.length?`<h3>Applications that read its data</h3><p class="small muted" style="margin-bottom:6px">Each must be on Google Cloud, or its owner must have agreed a bridge (dual run, copy back), before ${esc(x.application)} is cut over.</p>
+      ${x.down.map(d=>{const b=brid.find(y=>y.target===d);return `<div class="lrow"><div class="lhd"><span><b style="font-weight:500">${esc(d)}</b> ${st(appSt(d),APP_ST[appSt(d)])}</span>
+        ${LIVE?(b?`<button class="btn sm" data-unbridge="${esc(d)}">Clear bridge</button>`:appSt(d)==="MIGRATED"?"":`<button class="btn sm" data-bridge="${esc(d)}">Record bridge</button>`):""}</div>
+        <div class="small">${b?`${st("BRIDGE_AGREED")} <span class="muted">${esc(b.by_name)}:</span> ${esc(b.note)}`:appSt(d)==="MIGRATED"?'<span class="muted">Already on Google Cloud, no bridge needed.</span>':'<span class="muted">No bridge recorded.</span>'}</div></div>`}).join("")}`:""));
+  closeBind("#daPanel",()=>{UI.daSel=null;bDepApps()});
+  const g=id=>$("#"+id);
+  if(g("daGo"))g("daGo").onclick=async e=>{e.target.disabled=true;try{await api(`/api/v1/projects/${pid}/applications/${app}/migration-status`,{status:g("daSt").value,by:g("daBy").value,note:g("daNote").value});
+    await refresh({k:"ok",html:`Status recorded for ${esc(x.application)}.${g("daSt").value!=="NOT_STARTED"?" E-mail drafts are on Stakeholders.":""}`})}catch(er){e.target.disabled=false;g("daErr").textContent=er.message}};
+  $("#daPanel").querySelectorAll("[data-bridge]").forEach(b=>b.onclick=()=>{const d=b.dataset.bridge;
+    show(`Bridge for ${d}`,`<form id="brForm" novalidate><div id="brErr"></div><p class="small muted" style="margin-bottom:8px">${esc(d)} reads data from ${esc(x.application)} and stays on AWS for now. Record how it keeps working during the cutover, as agreed with its owner.</p>
+      <label class="fld"><span>${esc(d)} owner who agreed</span><input type="text" name="by"></label>
+      <label class="fld"><span>The arrangement (at least 10 characters)</span><textarea name="note" rows="3" style="width:100%;height:auto;padding:6px 8px" placeholder="For example: reads a copy replicated back to the AWS bucket for two weeks"></textarea></label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button class="btn" type="button" onclick="$('#dlg').close()">Cancel</button><button class="btn primary" type="submit" id="brGo">Record bridge</button></div></form>`);
+    $("#brForm").onsubmit=async ev=>{ev.preventDefault();const f=new FormData(ev.target);$("#brGo").disabled=true;
+      try{await api(`/api/v1/projects/${pid}/applications/${app}/bridges/${encodeURIComponent(d)}`,{by:String(f.get("by")),note:String(f.get("note"))});$("#dlg").close();await refresh({k:"ok",html:`Bridge recorded for ${esc(d)}.`})}
+      catch(er){$("#brGo").disabled=false;$("#brErr").innerHTML=`<div class="flash err"><div>${esc(er.message)}</div></div>`}}});
+  $("#daPanel").querySelectorAll("[data-unbridge]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{await api(`/api/v1/projects/${pid}/applications/${app}/bridges/${encodeURIComponent(b.dataset.unbridge)}`,null,"DELETE");await refresh({k:"ok",html:"Bridge cleared."})}catch(er){b.disabled=false;toast({k:"err",html:esc(er.message)})}});
 }
 
 /* ============================================================== 5 mapping */
@@ -849,13 +1114,15 @@ function mPanel(m){
 /* ============================================================== 6 conversion */
 function vConversion(){
   const c=S.conversions;
-  UI.cSel=UI.cSel||(c[0]&&c[0].id);
+  const keep=c.find(x=>x.id===UI.cSel||(x.history||[]).some(h=>h.id===UI.cSel));   // a new version keeps the selection
+  UI.cSel=keep?keep.id:(c[0]&&c[0].id);
   return head("conversion","Converters write to a separate, versioned output area. Source files are never modified and nothing is deployed. Every output waits for engineering review.",
     `<button class="btn" id="cZipAll">Download all outputs (.zip)</button>`)+`
   <div class="cols" style="grid-template-columns:300px minmax(0,1fr);align-items:start">
    <div class="box"><div class="hd"><h2>Artefacts</h2><span class="note">${c.length}</span></div><ul class="flist" id="cList" role="listbox" aria-label="Converted artefacts">${c.map(x=>{const fails=x.checks.filter(k=>k.status==="FAIL").length,warns=x.checks.filter(k=>k.status!=="PASS").length+x.unsupported.length;
      return `<li role="option" tabindex="0" data-id="${esc(x.id)}" aria-selected="${x.id===UI.cSel}"><div class="f">${esc(x.source_file)}</div><div class="m"><span>${esc(x.converter)}</span></div>
-     <div class="m"><span class="barcell" title="Share of constructs the conversion rules handled. It is not a measure of correctness." style="grid-template-columns:70px 30px">${bar(x.confidence*100,x.confidence<.75?"review":"pass")}<span>${x.confidence}</span></span>${fails?st("FAIL",`${fails} failed`):warns?st("REVIEW",`${warns} to check`):st("PASS","Static checks pass")}</div></li>`}).join("")}</ul></div>
+     <div class="m"><span class="barcell" title="Share of constructs the conversion rules handled. It is not a measure of correctness." style="grid-template-columns:70px 30px">${bar(x.confidence*100,x.confidence<.75?"review":"pass")}<span>${x.confidence}</span></span>${fails?st("FAIL",`${fails} failed`):(x.test_summary||{}).FAIL?st("FAIL",`${x.test_summary.FAIL} test${x.test_summary.FAIL>1?"s":""} failed`):warns?st("REVIEW",`${warns} to check`):st("PASS","Static checks pass")}</div>
+     <div class="m"><span class="small muted">Version ${x.current_n||1}${x.current_kind==="EDITED"?", edited":""}</span>${st(x.approval_status==="PENDING_REVIEW"?"PENDING":x.approval_status,x.approval_status==="PENDING_REVIEW"?"Awaiting review":null)}</div></li>`}).join("")}</ul></div>
    <div id="cWork"></div></div>`;
 }
 function bConversion(){
@@ -873,12 +1140,12 @@ function cWork(){
   const hl=c.mapping_log.map(x=>x.line).filter(Boolean);
   const f=x=>`${x.length}`;
   $("#cWork").innerHTML=`<div class="box"><div class="hd"><div><h2 class="mono" style="font-size:14px">${esc(c.source_file)}</h2><div class="small muted">${esc(c.converter)} ${esc(c.version)} · ${esc(c.application||"")} · ${c.constructs_converted} of ${c.constructs_total} constructs converted</div></div>
-   <div style="display:flex;gap:8px;align-items:center">${tag("REVIEW","Awaiting review")}<button class="btn sm" id="cZip">Download (.zip)</button></div></div>
-   <div class="flash info" style="margin:0 14px 10px"><div><b>Not run on Google Cloud.</b> Checks cover syntax, parsing and policy rules only. This output has not been executed or deployed, so a pass here does not prove it works.</div></div>
-   <div style="padding:0 14px">${tabs("cTabs",[["code","Code"],["find","Findings",c.warnings.length+c.unsupported.length+c.manual_actions.length],["checks","Checks",c.checks.length],["log","Rule log",c.mapping_log.length]],UI.cTab)}</div>
+   <div style="display:flex;gap:8px;align-items:center"><span class="small muted">Version ${c.current_n||1} of ${(c.history||[]).length||1}${c.current_kind==="EDITED"?`, edited by ${esc(c.edited_by)}`:""}</span>${tag(c.approval_status==="PENDING_REVIEW"?"PENDING":c.approval_status,c.approval_status==="PENDING_REVIEW"?"Awaiting review":null)}<button class="btn sm" id="cZip">Download (.zip)</button></div></div>
+   <div class="flash info" style="margin:0 14px 10px"><div><b>Not run on Google Cloud.</b> Checks and generated tests read the files; nothing has been executed or deployed, so a pass here does not prove it works.</div></div>
+   <div style="padding:0 14px">${tabs("cTabs",[["code","Code"],["tests","Tests",(c.tests||[]).length],["find","Findings",c.warnings.length+c.unsupported.length+c.manual_actions.length],["checks","Checks",c.checks.length],["ver","Versions and review",(c.history||[]).length],["log","Rule log",c.mapping_log.length]],UI.cTab)}</div>
    <div id="cBody"></div></div>`;
   onTabs("cTabs",v=>{UI.cTab=v;cBody(c,outs,hl)});
-  $("#cZip").onclick=()=>downloadZip(c.source_file.replace(/\W+/g,"_")+"_gcp.zip",c.outputs);
+  $("#cZip").onclick=()=>downloadZip(c.source_file.replace(/\W+/g,"_")+"_gcp.zip",{...c.outputs,...(c.test_files||{})});
   cBody(c,outs,hl);
 }
 function cBody(c,outs,hl){
@@ -886,9 +1153,37 @@ function cBody(c,outs,hl){
   if(UI.cTab==="code"){
     el.innerHTML=`<div class="filetabs" role="tablist">${outs.map(o=>`<button role="tab" data-o="${esc(o)}" aria-selected="${o===UI.cOut}">${esc(o.split("/").pop())}</button>`).join("")}</div>
     <div class="codepair"><div><div class="cap"><span>AWS source · <span class="mono">${esc(c.source_file)}</span></span><span class="small muted">${hl.length?`${hl.length} changed lines highlighted`:""}</span></div>${c.source_text?codeBlock(c.source_text,hl):'<div class="bd muted" style="padding:12px">Data file, no source text shown.</div>'}</div>
-    <div><div class="cap"><span>Google Cloud · <span class="mono">${esc(UI.cOut)}</span></span><button class="btn sm" id="cDl">Download file</button></div>${codeBlock(c.outputs[UI.cOut])}</div></div>`;
+    <div><div class="cap"><span>Google Cloud · <span class="mono">${esc(UI.cOut)}</span></span><span style="display:flex;gap:6px">${LIVE&&c.history&&c.history.length&&c.history[c.history.length-1].has_content?`<button class="btn sm" id="cEdit">Edit</button>`:""}<button class="btn sm" id="cDl">Download file</button></span></div>${codeBlock(c.outputs[UI.cOut])}</div></div>`;
     $$(".filetabs button",el).forEach(b=>b.onclick=()=>{UI.cOut=b.dataset.o;cBody(c,outs,hl)});
     $("#cDl").onclick=()=>download(UI.cOut.split("/").pop(),c.outputs[UI.cOut]);
+    const ce=$("#cEdit");if(ce)ce.onclick=()=>codeEditDlg(c,UI.cOut);
+  }else if(UI.cTab==="tests"){
+    const T=c.tests||[], files=Object.keys(c.test_files||{});
+    el.innerHTML=(!T.length?`<p class="small muted" style="padding:12px 14px">No generated tests for this version. It was generated before tests were added; run the assessment again to create them.</p>`:
+      table("tTst",T,[{k:"status",l:"Result",r:x=>st(x.status==="WARN"?"REVIEW":x.status,x.status==="NOT_RUN"?"Not run":null)},{k:"name",l:"Test"},{k:"detail",l:"Detail",r:x=>`<span class="small">${esc(x.detail)}</span>`},
+        {k:"ran",l:"Where it ran",r:x=>`<span class="small">${x.ran==="here"?"Here, reading the files":"Not run: needs your environment"}</span>`}],{flush:true}).html)+
+      `<div style="padding:10px 14px;border-top:1px solid var(--rule-2)"><p class="small muted" style="margin-bottom:8px">These go beyond the converter's own checks: names used but never defined, AWS SDK imports left behind, Terraform variables used but not declared, AWS resources left in Terraform, tables lost from SQL. They read the files and run nothing. Test files are generated so the checks can live in your repository; parity SQL has to be run against both warehouses.</p>
+       ${files.length?`<div class="row" style="gap:6px;flex-wrap:wrap">${files.map(f=>`<button class="btn sm" data-tf="${esc(f)}">Download ${esc(f.split("/").pop())}</button>`).join("")}</div>`:""}</div>`;
+    $$("[data-tf]",el).forEach(b=>b.onclick=()=>download(b.dataset.tf.split("/").pop(),c.test_files[b.dataset.tf]));
+  }else if(UI.cTab==="ver"){
+    const H=c.history||[], last=H[H.length-1];
+    el.innerHTML=(!H.length?`<p class="small muted" style="padding:12px 14px">No versions recorded.</p>`:
+      table("tVer",[...H].reverse(),[{k:"n",l:"Version",r:x=>`<b style="font-weight:500">${x.n}</b>${x.id===last.id?' <span class="small muted">current</span>':""}`},
+        {k:"kind",l:"Made by",r:x=>x.kind==="EDITED"?`Edited by ${esc(x.edited_by)}<div class="small muted">${esc(x.note)}</div>`:x.kind?`Generated (${esc(x.version||"")})`:`Generated <div class="small muted">content not kept</div>`},
+        {k:"created_at",l:"When",r:x=>`<span class="nowrap small">${esc(String(x.created_at).replace("T"," ").slice(0,16))}</span>`},
+        {k:"approval_status",l:"Review",r:x=>`${st(x.approval_status==="PENDING_REVIEW"?"PENDING":x.approval_status,x.approval_status==="PENDING_REVIEW"?"Awaiting review":null)}${x.approved_by?`<div class="small muted">${esc(x.approved_by)}: ${esc(x.approval_note)}</div>`:""}`},
+        {k:"cmp",l:"",s:false,r:x=>x.id!==last.id&&x.has_content&&last.has_content?`<button class="btn sm" data-diff="${esc(x.id)}">Compare with current</button>`:""}],{flush:true}).html)+
+      `<div id="cDiff"></div>`+
+      (LIVE&&last&&last.has_content?`<div class="form" style="margin:0 14px 14px"><h3 style="margin:10px 0 6px">${["APPROVED","REJECTED"].includes(last.approval_status)?"Change the review of":"Review"} version ${last.n}</h3><p class="small muted" style="margin-bottom:6px">The decision covers exactly this version's files. A later version with different content needs its own review; a regenerated version identical to an approved one keeps the approval.</p>
+        <div class="fgrid"><label class="fld"><span>Your name and role</span><input type="text" id="rvWho" autocomplete="name"></label><label class="fld"><span>Review note (at least 10 characters)</span><input type="text" id="rvWhy"></label></div>
+        <div class="row"><button class="btn primary" id="rvOk">Approve this version</button><button class="btn" id="rvNo">Reject</button></div><div class="small" style="color:var(--fail);margin-top:4px" id="rvErr"></div></div>`:
+        last&&!last.has_content?`<p class="small muted" style="padding:0 14px 14px">This version was generated before versions were kept, so it cannot be reviewed here. Run the assessment again to create a reviewable version.</p>`:"");
+    $$("[data-diff]",el).forEach(b=>b.onclick=async()=>{try{const d=await (await fetch(`/api/v1/projects/${encodeURIComponent(S.project.id)}/conversions/${b.dataset.diff}/diff/${last.id}`)).json();
+      $("#cDiff").innerHTML=`<div style="padding:10px 14px"><h3 style="margin:0 0 6px">Changes since that version</h3>${Object.keys(d.changed||{}).length?Object.entries(d.changed).map(([f,t])=>`<p class="small mono" style="margin:6px 0 2px">${esc(f)}</p><pre class="json diff">${t.split("\n").map(l=>`<span class="${l.startsWith("+")&&!l.startsWith("+++")?"add":l.startsWith("-")&&!l.startsWith("---")?"del":""}">${esc(l)}</span>`).join("\n")}</pre>`).join(""):'<p class="small muted">No file changed.</p>'}
+       ${(d.unchanged||[]).length?`<p class="small muted">Unchanged: ${esc(d.unchanged.join(", "))}</p>`:""}</div>`}catch(e){toast({k:"err",html:esc(e.message)})}});
+    const rv=v=>async e=>{e.target.disabled=true;try{await api(`/api/v1/projects/${encodeURIComponent(S.project.id)}/conversions/${last.id}/review`,{approver:$("#rvWho").value,decision:v,note:$("#rvWhy").value});
+      await refresh({k:"ok",html:`Version ${last.n} ${v==="APPROVED"?"approved":"rejected"}.`})}catch(er){e.target.disabled=false;$("#rvErr").textContent=er.message}};
+    if($("#rvOk"))$("#rvOk").onclick=rv("APPROVED");if($("#rvNo"))$("#rvNo").onclick=rv("REJECTED");
   }else if(UI.cTab==="find"){
     el.innerHTML=`<div class="cols c2" style="padding:12px 14px 14px">${[["Unsupported",c.unsupported,"fail"],["Warnings",c.warnings,"review"],["Manual actions",c.manual_actions,"info"],["Assumptions",c.assumptions,"neutral"]].map(([t,a,cl])=>`<div><h3 style="margin-bottom:6px">${esc(t)} <span class="muted" style="font-weight:400">${a.length}</span></h3>${a.length?`<ul style="margin:0;padding-left:18px;font-size:13px">${a.map(x=>`<li style="margin:3px 0">${esc(x)}</li>`).join("")}</ul>`:'<p class="small muted">None</p>'}</div>`).join("")}</div>
     <div style="padding:0 14px 14px" class="small muted">Gated by: ${esc(c.gated_by||"")}</div>`;
@@ -899,6 +1194,18 @@ function cBody(c,outs,hl){
     const keys=[...new Set(c.mapping_log.flatMap(x=>Object.keys(x)))];
     el.innerHTML=table("tLog",c.mapping_log.map((x,i)=>({...x,_i:i})),keys.map(k=>({k,l:human(k),r:x=>`<span class="${k==="line"?"":"mono small"}">${esc(typeof x[k]==="object"?JSON.stringify(x[k]):x[k])}</span>`})),{flush:true,page:50}).html;
   }
+}
+function codeEditDlg(c,path){
+  const last=c.history[c.history.length-1];
+  show(`Edit ${path.split("/").pop()}`,`<form id="ceForm" novalidate><div id="ceErr"></div>
+    <p class="small muted" style="margin-bottom:6px">Saving creates version ${last.n+1}. The other files of version ${last.n} are carried over unchanged, the generated tests run again, and the new version needs its own review.</p>
+    <label class="fld"><span class="mono small">${esc(path)}</span><textarea name="content" rows="18" spellcheck="false" style="width:100%;height:auto;padding:6px 8px;font:12px/1.5 var(--mono)">${esc(c.outputs[path])}</textarea></label>
+    <div class="fgrid"><label class="fld"><span>Your name</span><input type="text" name="by" autocomplete="name"></label><label class="fld"><span>What you changed</span><input type="text" name="note"></label></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button class="btn" type="button" onclick="$('#dlg').close()">Cancel</button><button class="btn primary" type="submit" id="ceGo">Save as version ${last.n+1}</button></div></form>`);
+  $("#ceForm").onsubmit=async ev=>{ev.preventDefault();const f=new FormData(ev.target);$("#ceGo").disabled=true;
+    try{const r=await api(`/api/v1/projects/${encodeURIComponent(S.project.id)}/conversions/${last.id}/edit`,{path,content:String(f.get("content")),by:String(f.get("by")),note:String(f.get("note"))});$("#dlg").close();
+      await refresh({k:"ok",html:`Saved as version ${last.n+1}. Tests: ${r.tests.PASS} passed, ${r.tests.FAIL} failed.`})}
+    catch(er){$("#ceGo").disabled=false;$("#ceErr").innerHTML=`<div class="flash err"><div>${esc(er.message)}</div></div>`}};
 }
 function download(name,text){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type:"text/plain"}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
 function downloadZip(name,files){ // store-only zip, no compression
@@ -922,11 +1229,13 @@ function vPlan(){
   return head("plan",`How each data store moves: bulk method, catch-up method and cutover pattern, chosen from size, link bandwidth and the downtime tolerance found in the supplied documents. Where no tolerance was supplied, the plan says so instead of assuming one.`)+`
   ${unknown?`<div class="flash info"><div><b>${unknown} of ${p.movement.length} stores have no downtime tolerance in the documents.</b> Their cutover pattern stays open until the owner confirms one.</div></div>`:""}
   <div class="split"><div id="pTbl"></div><aside class="panel" id="pPanel"></aside></div>
+  ${planCostBox()}
   <div class="sect" style="margin-top:20px"><h2>Migration waves</h2><p class="sub small" style="margin-bottom:8px">Ordered by dependencies, so nothing moves before what it relies on.</p>
    <div class="waves">${p.waves.map(w=>`<div><div class="wn">Wave ${w.wave}</div><div class="wt">${esc(w.name)}</div><div class="wa">${esc(w.applications.join(", "))}</div><div class="wr">${w.resources.length} resources. ${esc(w.notes)}</div></div>`).join("")}</div></div>
+  ${!bp?`<div class="box" style="margin-top:20px"><div class="hd"><h2>Historical backfill plan</h2></div><div class="bd"><p class="small sub">No historical backfill plan for this project. One is created when a source and target table are connected for loading, which is not part of this assessment.</p></div></div>`:`
   <div class="box" style="margin-top:20px"><div class="hd"><h2>Historical backfill plan</h2><span class="note">${esc(bp.source_object)} to ${esc(bp.target_object)}</span></div><div class="bd cols c2">
    ${kv([["Decision",esc(bp.decision)],["Range",`${esc(bp.range_start)} to ${esc(bp.range_end)}`],["Batches",`${bp.batches.length}, at most ${bp.max_parallel_batches} in parallel`],["Retention",`${S.plan.retention_months} months, from the application specification`]])}
-   ${kv([["Load mode",esc(bp.load_mode)],["Idempotency",esc(bp.idempotency)],["Retry",`${bp.retry_policy.max_attempts} attempts, backoff ${bp.retry_policy.backoff_seconds.join(", ")} s`],["Validation rules",esc(bp.validation_rules.join(", "))]])}</div></div>`;
+   ${kv([["Load mode",esc(bp.load_mode)],["Idempotency",esc(bp.idempotency)],["Retry",`${bp.retry_policy.max_attempts} attempts, backoff ${bp.retry_policy.backoff_seconds.join(", ")} s`],["Validation rules",esc(bp.validation_rules.join(", "))]])}</div></div>`}`;
 }
 function bPlan(){
   const rows=S.plan.movement;
@@ -971,26 +1280,33 @@ function journey(){
 /* ============================================================== 8 load runs */
 function vLoads(){
   const runs=S.migration.runs;UI.lSel=UI.lSel||(runs[0]&&runs[0].id);
-  return head("loads","Every batch has an ID, an attempt count, a SHA-256 checksum and a checkpoint. A failed batch resumes from its last completed stage without reloading the others.")+journey()+
+  return head("loads","Every batch has an ID, an attempt count, a SHA-256 checksum and a checkpoint. A failed batch resumes from its last completed stage without reloading the others.")+journey()+loadControlsBox()+
   `<div id="lTbl"></div><div id="lRun" style="margin-top:16px"></div>`;
 }
 function bLoads(){
   const runs=S.migration.runs;
+  const lc=$("#lcGo");if(lc)lc.onclick=async()=>{lc.disabled=true;try{await api(`/api/v1/projects/${encodeURIComponent(S.project.id)}/load-controls`,{plan_id:S.load_controls.plan_id,max_parallel:parseInt($("#lcN").value,10),by:$("#lcBy").value,note:$("#lcWhy").value});
+    await refresh({k:"ok",html:"Load control saved. It applies to the next run."})}catch(e){lc.disabled=false;$("#lcErr").textContent=e.message}};
   const draw=()=>mountTable("#lTbl","tRuns",runs,[
     {k:"id",l:"Run",r:x=>`<span class="mono">${esc(x.id)}</span>`},{k:"run_type",l:"Type",r:x=>esc(human(x.run_type))},{k:"run_status",l:"Status",r:x=>st(x.run_status)},
     {k:"watermark",l:"Watermark",r:x=>`<span class="small mono">${esc(x.watermark)}</span>`},{k:"b",l:"Batches",num:true,s:x=>x.batches.length,r:x=>x.batches.length},
     {k:"r",l:"Rows loaded",num:true,s:x=>(x.totals||{}).rows_loaded??0,r:x=>fmt((x.totals||{}).rows_loaded??x.batches.reduce((a,b)=>a+(b.loaded||0),0))},
-    {k:"q",l:"Quarantined",num:true,s:x=>(x.totals||{}).rows_rejected??0,r:x=>{const q=(x.totals||{}).rows_rejected??0;return q?`<span style="color:var(--review);font-weight:600">${fmt(q)}</span>`:"0"}}],
+    {k:"q",l:"Quarantined",num:true,s:x=>(x.totals||{}).rows_rejected??0,r:x=>{const q=(x.totals||{}).rows_rejected??0;return q?`<span style="color:var(--review);font-weight:600">${fmt(q)}</span>`:"0"}},
+    {k:"by",l:"Data moved",num:true,s:x=>(x.indicators||{}).bytes||0,r:x=>(x.indicators||{}).bytes_known_for?bytesH(x.indicators.bytes):'<span class="muted small">Not recorded</span>'}],
     {onSelect:r=>{UI.lSel=r.id;UI.bSel=null;draw();lRun()},selected:UI.lSel});
   draw();lRun();
 }
 function lRun(){
   const r=S.migration.runs.find(x=>x.id===UI.lSel);if(!r){$("#lRun").innerHTML="";return}
-  const t=r.totals||{};
+  const t=r.totals||{}, ind=r.indicators||{};
   const retried=r.batches.filter(b=>b.attempt>1).length;
   $("#lRun").innerHTML=`<div class="split"><div class="box"><div class="hd"><div><h2>${esc(human(r.run_type))}</h2><div class="small muted mono">${esc(r.id)} · ${esc(String(r.started_at).replace("T"," ").slice(0,19))}</div></div>${st(r.run_status)}</div>
    <div class="bd">${r.error_summary?`<div class="flash err"><div>${esc(r.error_summary)}</div></div>`:""}
     <div class="metrics" style="margin-bottom:12px;grid-template-columns:repeat(5,minmax(0,1fr))"><div><div class="v">${fmt(t.batches??r.batches.length)}</div><div class="l">Batches</div></div><div><div class="v">${fmt(t.rows_extracted??"–")}</div><div class="l">Rows extracted</div></div><div><div class="v">${fmt(t.rows_loaded??"–")}</div><div class="l">Rows loaded</div></div><div><div class="v ${t.rows_rejected?"review":""}">${fmt(t.rows_rejected??0)}</div><div class="l">Quarantined</div></div><div><div class="v ${retried?"review":""}">${retried}</div><div class="l">Batches retried</div></div></div>
+    <div class="metrics" style="margin-bottom:12px;grid-template-columns:repeat(4,minmax(0,1fr))"><div><div class="v">${ind.bytes_known_for?bytesH(ind.bytes):"–"}</div><div class="l">Data moved${ind.bytes_known_for&&ind.bytes_known_for<ind.batches?` (${ind.bytes_known_for} of ${ind.batches} batches)`:""}</div></div>
+     <div><div class="v">${ind.seconds!=null?`${fmt(ind.seconds)} s`:"–"}</div><div class="l">Elapsed</div></div>
+     <div><div class="v">${ind.peak_parallel??"–"} <span class="small muted" style="font-weight:400">of ${esc(ind.max_parallel??"–")}</span></div><div class="l">${ind.peak_parallel!=null?"Most batches in flight at once, of the limit":"Batch timings not recorded for this run"}</div></div>
+     <div><div class="v">${ind.cost?usd(ind.cost.aws_egress):"–"}</div><div class="l">Estimated AWS transfer-out cost</div></div></div>
     <div class="batches">${r.batches.map((b,i)=>`<button class="batch ${b.status} ${b.attempt>1?"retried":""} ${UI.bSel===b.id?"sel":""}" data-i="${i}"><b>${esc(b.batch_key)}</b>${esc(b.partition)}<div class="muted">${fmt(b.loaded??0)} rows</div>${b.rejected?`<div class="q">${b.rejected} quarantined</div>`:""}${b.attempt>1?`<div class="q">Attempt ${b.attempt}</div>`:""}</button>`).join("")}</div></div></div>
    <aside class="panel" id="bPanel"></aside></div>`;
   const bp=b=>{$("#bPanel").innerHTML=panel(`Batch ${esc(b.batch_key)}`,`${esc(b.partition)} · ${st(b.status)}`,
@@ -1001,14 +1317,53 @@ function lRun(){
   const sb=r.batches.find(b=>b.id===UI.bSel);sb?bp(sb):$("#bPanel").innerHTML=panelEmpty("Select a batch to see its counts, checksum, landing location and checkpoint.");
 }
 
+/* ------------------------------------------------- load controls and indicators (Round 7) */
+const usd=v=>v==null?"–":v<0.005&&v>0?"under $0.01":`$${Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+const bytesH=b=>b==null?"–":b<1024?`${b} B`:b<1048576?`${(b/1024).toFixed(1)} KB`:b<1073741824?`${(b/1048576).toFixed(1)} MB`:`${(b/1073741824).toFixed(2)} GB`;
+function costRows(c){return kv([["AWS data transfer out",usd(c.aws_egress)],["Cloud Storage landing copy, per month",usd(c.gcs_landing_per_month)],["BigQuery batch load",c.bigquery_load?usd(c.bigquery_load):"No charge"],["BigQuery storage, per month",usd(c.bigquery_storage_per_month)]])+
+  `<p class="small muted" style="margin-top:6px">Estimate at ${esc(c.currency)} list price, rates checked ${esc(c.checked)}: ${esc(c.basis)}. Rates and sources are in <span class="mono">knowledge_base/cost_rates.json</span>; edit them if your region or contract differs.</p>`}
+function planCostBox(){
+  const L=S.load_controls;if(!L||!L.plan||!L.plan.objects)return "";const P=L.plan;
+  return `<div class="box" style="margin-top:20px"><div class="hd"><h2>Planned volume and cost</h2><span class="note">${P.objects} data stores</span></div><div class="bd cols c2">
+   <div>${kv([["Data to move",`${fmt(P.gb)} GB`],["Online transfer time",`${fmt(P.transfer_hours)} h${P.bandwidth_mbps?` at ${fmt(P.bandwidth_mbps)} Mbps`:""}`]])}
+    <p class="small muted" style="margin-top:6px">Sizes come from the inventory. Transfer time is bound by the link, so running more batches at once does not shorten it; the limit protects the source and target from overload.</p></div>
+   <div>${costRows(P.cost)}</div></div></div>`;
+}
+function loadControlsBox(){
+  const L=S.load_controls;if(!L||!L.plan_id)return "";
+  const sc=L.schema, last=(L.history||[]).slice(-1)[0];
+  return `<div class="box" style="margin-bottom:16px"><div class="hd"><h2>Load controls</h2><span class="note">Takes effect for the next run</span></div><div class="bd cols c2">
+   <div><h3 style="margin:0 0 6px">Batches at a time</h3><p style="margin:0 0 6px"><span style="font-size:20px;font-weight:600">${esc(L.max_parallel)}</span> <span class="small muted">of at most ${L.limit_cap}</span></p>
+    ${last?`<p class="small">Changed from ${esc(last.from)} to ${esc(last.to)} by ${esc(last.by)}: ${esc(last.note)}</p>`:'<p class="small muted">Not changed since the plan was made.</p>'}
+    ${LIVE?`<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:6px"><input type="number" id="lcN" min="1" max="${L.limit_cap}" value="${esc(L.max_parallel)}" style="width:70px;padding:4px 6px" aria-label="Batches at a time">
+      <input type="text" id="lcBy" placeholder="Your name" style="width:140px;padding:4px 6px"><input type="text" id="lcWhy" placeholder="Reason, e.g. source load limit" style="flex:1;min-width:180px;padding:4px 6px"><button class="btn" id="lcGo">Save</button></div>
+      <div class="small" style="color:var(--fail);margin-top:4px" id="lcErr"></div>`:roNote("Changing load controls")}
+    <p class="small muted" style="margin-top:8px">Runs start only inside the sample's scripted story; starting or retrying a run from this screen needs a real source and target connection and is not built yet.</p></div>
+   <div><h3 style="margin:0 0 6px">Schema check</h3>${!sc?'<p class="small muted">No source or target table to compare.</p>':`
+    ${sc.alerts.length?`<div class="flash err" style="margin-bottom:6px"><div><b>Schema drift.</b> ${sc.alerts.map(esc).join("; ")}.</div></div>`:`<p class="small">${st("PASS","No drift")} The source still has the ${sc.expected.length} columns the load copies${sc.snapshot?", unchanged since the plan was made":""}, and the target has all of them.</p>`}
+    ${kv([["Columns the load copies",`<span class="mono small">${esc(sc.expected.join(", "))}</span>`],["Source table",`${sc.source.length} columns`],["Target table",`${sc.target.length} columns, ${sc.lineage.length} of them added by the loader for lineage (${esc(sc.lineage.join(", "))})`],["Checked",esc(String(sc.checked_at).replace("T"," ").slice(0,16))]])}`}</div></div></div>`;
+}
+
 /* ============================================================== 9 validation */
 function vValidation(){
   const vs=S.validations.filter(v=>v.run_type!=="SOURCE_BASELINE");
   if(!UI.vSel){const f=vs.find(v=>v.status==="FAIL");UI.vSel=(f||vs[0]||{}).id}
-  return head("validation","AWS source is reconciled against the Google Cloud target at table, partition, column and rule level. Counts, totals and hashes are computed in code, and a mismatch is never accepted without a recorded waiver.")+journey()+`
-  <div class="sect"><h2 style="margin-bottom:8px">Validation runs</h2><div id="vRuns"></div></div><div id="vRun" style="margin-top:16px"></div>`;
+  UI.valTab=UI.valTab||"runs";
+  const exc=S.exceptions||[], openExc=exc.filter(e=>!["WAIVED","RESOLVED","RESOLVED_BY_RETRY"].includes(e.remediation_status)).length;
+  return head("validation","AWS source is reconciled against the Google Cloud target at table, partition, column and rule level. Counts, totals and hashes are computed in code, and a mismatch is never accepted without a recorded waiver.")+
+  tabs("valTabs",[["runs","Validation runs",vs.length],["objects","Your objects",(S.dq_objects||[]).length],["exceptions","Exceptions queue",openExc]],UI.valTab)+`<div id="valBody"></div>`;
 }
-function bValidation(){
+function bValidation(){onTabs("valTabs",v=>{UI.valTab=v;valBody()});valBody()}
+function valBody(){
+  if(UI.valTab==="objects"){$("#valBody").innerHTML=`${journey2()}<div id="dqTbl"></div><div id="dqApp" style="margin-top:16px"></div>`;bDq();return}
+  if(UI.valTab==="exceptions"){$("#valBody").innerHTML=`<div id="excTbl"></div><aside class="panel" id="excPanel" style="margin-top:12px"></aside>`;bExceptions();return}
+  if(!S.stages.data_migration){$("#valBody").innerHTML=`<div class="flash info"><div>No source or target data was connected for this project, so nothing was loaded and nothing was reconciled this way. See the "Your objects" tab to reconcile your own source/target files instead.</div></div>`;return}
+  $("#valBody").innerHTML=`${journey()}
+  <div class="sect"><h2 style="margin-bottom:8px">Validation runs</h2><div id="vRuns"></div></div><div id="vRun" style="margin-top:16px"></div>`;
+  bValidationRuns();
+}
+function journey2(){return LIVE&&!isSample()?`<div class="flash info" style="margin-bottom:12px"><div>Reconcile two small CSV files you supply — row count, coverage, per-column aggregate totals (with a tolerance you set) and value differences — the same evidence the readiness gate asks for. This is for your own project's data; the sample's full post-migration run is on the Validation runs tab.</div></div>`:""}
+function bValidationRuns(){
   const vs=S.validations.filter(v=>v.run_type!=="SOURCE_BASELINE");
   const draw=()=>mountTable("#vRuns","tVal",vs,[
     {k:"created_at",l:"Time",r:x=>`<span class="nowrap">${esc(time(x.created_at))}</span>`},{k:"object",l:"Object",r:x=>`<span class="mono">${esc(x.object)}</span>`},
@@ -1064,6 +1419,108 @@ function rPanel(r,v){
     catch(e){$("#wErr").textContent=e.message;b.disabled=false}};
 }
 
+/* ------------------------------------------------- validation: your objects (Round 5) */
+function bDq(){
+  $("#dqTbl").innerHTML=(LIVE&&!isSample()?`<p style="margin-bottom:10px"><button class="btn primary" id="dqAddBtn">Add object</button></p>`:"")+`<div id="dqTblInner"></div>`;
+  const b=$("#dqAddBtn");if(b)b.onclick=dqAddDlg;
+  const objs=S.dq_objects||[];
+  if((UI.dqSel===undefined||!objs.some(x=>x.id===UI.dqSel))&&objs.length)UI.dqSel=objs[objs.length-1].id;
+  if(!objs.length){$("#dqTblInner").innerHTML=`<div class="flash info"><div>${isSample()?"This sample has no objects of its own; see Validation runs for its full post-migration reconciliation.":"Add two small CSV files (source and target) with a shared key column, then Add object. Running it compares row count, coverage, column totals and values, the same evidence the readiness gate asks for."}</div></div>`;return}
+  const draw=()=>mountTable("#dqTblInner","tDq",objs,[
+    {k:"name",l:"Object",r:x=>`<b style="font-weight:500">${esc(x.name)}</b>${x.application?`<div class="small muted">${esc(x.application)}</div>`:""}`},
+    {k:"key_column",l:"Key column",r:x=>`<span class="mono small">${esc(x.key_column)}</span>`},
+    {k:"last_status",l:"Result",r:x=>st(x.last_status)},
+    {k:"open_exceptions",l:"Open exceptions",num:true,r:x=>x.open_exceptions?`<span style="color:var(--fail);font-weight:600">${x.open_exceptions}</span>`:"0"}],
+    {onSelect:r=>{UI.dqSel=r.id;draw();dqApp()},selected:UI.dqSel,key:r=>r.id,empty:"No objects yet."});
+  draw();
+  const sel=objs.find(x=>x.id===UI.dqSel);sel?dqApp():$("#dqApp").innerHTML="";
+}
+function dqApp(){
+  const o=(S.dq_objects||[]).find(x=>x.id===UI.dqSel);if(!o){$("#dqApp").innerHTML="";return}
+  const s=o.summary||{};
+  const run=S.validations.find(v=>v.id===o.last_run_id);
+  const results=run?run.results:[];
+  const note=(S.monitoring_notes||[]).find(n=>n.application===o.application)||{};
+  $("#dqApp").innerHTML=`<div class="box"><div class="hd"><div><h2>${esc(o.name)}</h2><div class="small muted">${esc(o.source_label)} vs ${esc(o.target_label)}${o.application?" · "+esc(o.application):""}</div></div>${st(o.last_status)}</div>
+   <div class="bd">
+   ${s.checks?`<p class="small muted" style="margin-bottom:8px">${["PASS","FAIL","REVIEW"].filter(k=>s[k]).map(k=>`${s[k]} ${human(k).toLowerCase()}`).join(", ")} of ${s.checks} checks.</p>`:""}
+   ${results.length?table("tDqRes",results,[{k:"status",l:"Result",s:false,r:x=>st(x.status)},{k:"rule",l:"Check",s:false,r:x=>`${esc(x.rule)}${x.partition?`<div class="small muted">${esc(x.partition)}</div>`:""}`},
+     {k:"source_value",l:"Source",s:false,r:x=>`<span class="mono trunc">${esc(x.source_value)}</span>`},{k:"target_value",l:"Target",s:false,r:x=>`<span class="mono trunc">${esc(x.target_value)}</span>`}],{flush:true}).html:""}
+   <div class="sect" style="padding:14px 0 4px;border-top:1px solid var(--rule-2)"><h3 style="margin-bottom:6px">Tolerance</h3><p class="small muted" style="margin-bottom:6px">A numeric column's totals pass when source and target are within this amount of each other. Empty means an exact match is required.</p></div>
+   <div class="tw flush"><table><thead><tr><th>Column</th><th>Tolerance</th></tr></thead><tbody>
+   ${Object.keys(o.tolerances||{}).length?Object.entries(o.tolerances).map(([c,t])=>`<tr><td class="mono">${esc(c)}</td><td>${LIVE?`<input type="text" class="dqTol" data-col="${esc(c)}" value="${esc(t)}" style="width:100px;padding:3px 6px">`:esc(t)}</td></tr>`).join(""):`<tr><td class="muted" colspan="2">No numeric columns tolerated yet; add one below.</td></tr>`}
+   </tbody></table></div>
+   ${LIVE?`<div class="row" style="gap:6px;margin-top:8px"><input type="text" id="dqNewCol" placeholder="Column" style="width:140px;padding:4px 6px"><input type="text" id="dqNewTol" placeholder="Tolerance, e.g. 0.01" style="width:140px;padding:4px 6px"><button class="btn" id="dqAddTol">Add / update</button>
+     <button class="btn primary" id="dqSaveTol" style="margin-left:auto">Save tolerances</button><button class="btn" id="dqRerun">Re-run</button></div><div class="small" style="color:var(--fail);margin-top:4px" id="dqErr"></div>`:roNote("Changing tolerances or re-running")}
+   ${o.application?`<div class="sect" style="padding:14px 0 4px;border-top:1px solid var(--rule-2)"><h3 style="margin-bottom:6px">Post-cutover monitoring note</h3><p class="small muted" style="margin-bottom:6px">What to watch after go-live for ${esc(o.application)}, and for how long.</p></div>
+   ${LIVE?`<textarea id="dqNote" rows="3" style="width:100%;padding:6px 8px" placeholder="For example: compare daily row counts for two weeks post-cutover; alert if difference exceeds 0.1%.">${esc(note.note||"")}</textarea>
+     <p style="margin-top:6px"><button class="btn" id="dqNoteSave">Save note</button>${note.updated_at?`<span class="small muted" style="margin-left:8px">Last saved ${esc(String(note.updated_at).replace("T"," ").slice(0,19))} by ${esc(note.updated_by)}</span>`:""}</p>`:
+     `<p class="small">${esc(note.note||"No note recorded.")}</p>`}`:""}
+   </div></div>`;
+  const g=id=>$("#"+id), tol={...(o.tolerances||{})};
+  const addTol=$("#dqAddTol");if(addTol)addTol.onclick=()=>{const c=g("dqNewCol").value.trim(),t=g("dqNewTol").value.trim();if(!c||!t){g("dqErr").textContent="Enter a column and a tolerance.";return}tol[c]=t;g("dqNewCol").value="";g("dqNewTol").value="";saveTol()};
+  $("#dqApp").querySelectorAll(".dqTol").forEach(inp=>inp.onchange=()=>{tol[inp.dataset.col]=inp.value.trim()});
+  const saveTol=async()=>{const b=$("#dqSaveTol");if(b)b.disabled=true;try{await api(`/api/v1/validation/objects/${o.id}/tolerances`,{tolerances:tol});await refresh({k:"ok",html:"Tolerances saved. Re-run to apply them."})}catch(e){g("dqErr").textContent=e.message;if(b)b.disabled=false}};
+  const sv=$("#dqSaveTol");if(sv)sv.onclick=saveTol;
+  const rr=$("#dqRerun");if(rr)rr.onclick=async()=>{rr.disabled=true;try{await api(`/api/v1/validation/objects/${o.id}/rerun`,{});await refresh({k:"ok",html:`Re-ran ${esc(o.name)}.`})}catch(e){g("dqErr").textContent=e.message;rr.disabled=false}};
+  const ns=$("#dqNoteSave");if(ns)ns.onclick=async()=>{ns.disabled=true;try{await api(`/api/v1/projects/${encodeURIComponent(S.project.id)}/applications/${encodeURIComponent(o.application||"")}/monitoring-note`,{note:g("dqNote").value});await refresh({k:"ok",html:"Monitoring note saved."})}catch(e){toast({k:"err",html:esc(e.message)});ns.disabled=false}};
+}
+function dqAddDlg(){
+  const u=S.uploads.filter(x=>/\.(csv|tsv|txt)$/i.test(x.filename)&&(x.status==="ACCEPTED"||x.status==="DUPLICATE"));
+  const opt=u.map(x=>`<option value="${esc(x.id)}">${esc(x.filename)}</option>`).join("");
+  const apps=[...new Set((S.discovery.resources||[]).map(r=>r.application).filter(Boolean))].sort();
+  if(!u.length){show("Add object",`<div class="flash info"><div>No CSV files in this project yet. Add the source and target files on Uploads first.</div></div><p><a class="btn" href="#uploads" onclick="$('#dlg').close()">Go to Uploads</a></p>`);return}
+  show("Add object",`<form id="dqForm" novalidate><div id="dqFErr"></div>
+   <label class="fld"><span>Name (required)</span><input type="text" name="name" placeholder="orders"></label>
+   <label class="fld"><span>Application</span><select name="application">${appOpts(DEFAULT_APP())}</select><small>Linking it feeds this result into that application's readiness gate.</small></label>
+   <label class="fld"><span>Source file (required)</span><select name="source_upload"><option value="">Choose a file</option>${opt}</select></label>
+   <label class="fld"><span>Target file (required)</span><select name="target_upload"><option value="">Choose a file</option>${opt}</select></label>
+   <label class="fld"><span>Key column (required)</span><input type="text" name="key_column" placeholder="order_id"><small>Both files must have this column; it is how rows are matched.</small></label>
+   <label class="fld"><span>Columns to mask as sensitive</span><input type="text" name="pii" placeholder="customer_name, email"><small>Comma-separated. Values are compared as hashes, never shown in full.</small></label>
+   <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button class="btn" type="button" onclick="$('#dlg').close()">Cancel</button><button class="btn primary" type="submit" id="dqFGo">Add and run</button></div></form>`);
+  $("#dqForm").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);const b={name:String(f.get("name")||"").trim(),application:String(f.get("application")||""),
+    source_upload:String(f.get("source_upload")||""),target_upload:String(f.get("target_upload")||""),key_column:String(f.get("key_column")||"").trim(),
+    pii_columns:String(f.get("pii")||"").split(",").map(x=>x.trim()).filter(Boolean),tolerances:{}};
+    if(b.name.length<2||!b.source_upload||!b.target_upload||!b.key_column){$("#dqFErr").innerHTML=`<div class="flash err"><div>Enter a name, choose both files and name the key column.</div></div>`;return}
+    $("#dqFGo").disabled=true;try{await api(`/api/v1/projects/${encodeURIComponent(S.project.id)}/validation/objects`,b);$("#dlg").close();UI.dqSel=null;await refresh({k:"ok",html:"Object added and run."})}
+    catch(er){$("#dqFGo").disabled=false;$("#dqFErr").innerHTML=`<div class="flash err"><div>${esc(er.message)}</div></div>`}};
+}
+
+/* ------------------------------------------------- validation: exceptions queue (Round 5) */
+function bExceptions(){
+  const exc=S.exceptions||[];
+  UI.excStat=UI.excStat||"open";
+  const isOpenish=e=>!["WAIVED","RESOLVED","RESOLVED_BY_RETRY"].includes(e.remediation_status);
+  $("#excTbl").innerHTML=`<div class="toolbar">${seg("excStat",[["open","Open",exc.filter(isOpenish).length],["all","All",exc.length],["WAIVED","Waived",exc.filter(e=>e.remediation_status==="WAIVED").length]],UI.excStat)}</div><div id="excTblInner"></div>`;
+  const draw=()=>{const rows=exc.filter(e=>UI.excStat==="all"?true:UI.excStat==="open"?isOpenish(e):e.remediation_status===UI.excStat);
+    mountTable("#excTblInner","tExc",rows,[
+      {k:"remediation_status",l:"Status",r:x=>st(x.remediation_status)},
+      {k:"object",l:"Object",r:x=>`<span class="mono small">${esc(x.object)}</span>`},
+      {k:"rule",l:"Check",r:x=>`${esc(x.rule||"")}${x.partition?`<div class="small muted">${esc(x.partition)}</div>`:""}`},
+      {k:"severity",l:"Severity",r:x=>esc(human(x.severity))},
+      {k:"owner",l:"Owner",r:x=>esc(x.owner||"")}],
+      {sort:"remediation_status",onSelect:r=>{UI.excSel=r.id;draw();excPanel(r)},selected:UI.excSel,empty:"No exceptions."})};
+  onSeg("excStat",v=>{UI.excStat=v;TS.tExc&&(TS.tExc.p=0);draw()});
+  draw();const sel=exc.find(x=>x.id===UI.excSel);sel?excPanel(sel):$("#excPanel").innerHTML=panelEmpty("Select an exception to update who owns it and what's been done.");
+}
+function excPanel(x){
+  const EXC_STATUS=["OPEN","IN_PROGRESS","RESOLVED"];
+  const closed=["WAIVED","RESOLVED_BY_RETRY"].includes(x.remediation_status);
+  $("#excPanel").innerHTML=panel(esc(x.rule||x.object),`${esc(x.object)}${x.partition?" · "+esc(x.partition):""} · ${st(x.remediation_status)}`,
+    kv([["Severity",esc(human(x.severity))],["Owner",esc(x.owner||"Unassigned")],["Note",esc(x.note||"")]])+
+    (closed?`<p class="small muted" style="margin-top:8px">This was closed automatically (${esc(human(x.remediation_status).toLowerCase())}), not by manual tracking.</p>`:
+     LIVE?`<div class="form"><h3 style="margin:8px 0 4px">Update tracking</h3>
+      <label class="fld"><span>Status</span><select id="exStatus">${EXC_STATUS.map(s=>`<option value="${s}" ${x.remediation_status===s?"selected":""}>${human(s)}</option>`).join("")}</select></label>
+      <label class="fld"><span>Owner</span><input type="text" id="exOwner" value="${esc(x.owner||"")}"></label>
+      <label class="fld"><span>Note</span><textarea id="exNote" rows="2" style="width:100%;height:auto;padding:6px 8px">${esc(x.note||"")}</textarea></label>
+      <button class="btn primary" id="exSave">Save</button><div class="small" style="color:var(--fail);margin-top:4px" id="exErr"></div></div>`:roNote("Updating tracking")));
+  closeBind("#excPanel",()=>{UI.excSel=null;bExceptions()});
+  const b=$("#exSave");if(b)b.onclick=async()=>{b.disabled=true;
+    try{await api(`/api/v1/projects/${encodeURIComponent(S.project.id)}/validation/exceptions/${x.id}`,{remediation_status:$("#exStatus").value,owner:$("#exOwner").value.trim(),note:$("#exNote").value.trim()});
+      await refresh({k:"ok",html:"Exception tracking saved."})}
+    catch(e){$("#exErr").textContent=e.message;b.disabled=false}};
+}
+
 /* ============================================================== 10 readiness */
 function vReadiness(){
   const r=Object.values(S.risk);if(!UI.risk||!S.risk[UI.risk])UI.risk=(r.slice().sort((a,b)=>b.score-a.score)[0]||{}).application;
@@ -1079,16 +1536,67 @@ function bReadiness(){
     {key:r=>r.application,sort:"score",dir:-1,onSelect:r=>{UI.risk=r.application;draw();rkApp()},selected:UI.risk});
   draw();rkApp();
 }
+const RK_TRACK=["OPEN","IN_PROGRESS","MITIGATED","ACCEPTED_LOW"];
 function rkApp(){
   const a=S.risk[UI.risk];if(!a){$("#rkApp").innerHTML="";return}
   const gs=a.gates.slice().sort((x,y)=>(x.status==="BLOCKED"?0:x.status==="OPEN"?1:2)-(y.status==="BLOCKED"?0:y.status==="OPEN"?1:2));
+  const sg=(S.signoffs||{})[a.application]||{};
+  const hasSignoffGate=a.gates.some(g=>g.gate==="FORMAL_SIGNOFF");
+  const dimRows=Object.entries(a.dimensions).sort((x,y)=>y[1].score*y[1].weight-x[1].score*x[1].weight);
+  const mn=(S.monitoring_notes||[]).find(n=>n.application===a.application)||{};
   $("#rkApp").innerHTML=`<div class="box"><div class="hd"><div><h2>${esc(a.application)}</h2><div class="small muted">${esc(a.classification)} risk</div></div><div style="display:flex;gap:10px;align-items:center">${st(a.readiness)}<span style="font-size:20px;font-weight:600">${a.score}</span></div></div>
    <div class="sect" style="padding:12px 14px 4px"><h3 style="margin-bottom:6px">Sign-off gates</h3></div>
    ${table("tGates",gs,[{k:"status",l:"Status",s:false,r:x=>st(x.status)},{k:"gate",l:"Gate",s:false,r:x=>`${esc(human(x.gate))}<div class="small muted">${esc(x.detail)}</div>`}],{flush:true}).html}
+   ${hasSignoffGate?`<div class="sect" style="padding:14px 14px 4px;border-top:1px solid var(--rule-2)"><h3 style="margin-bottom:6px">Formal sign-off</h3></div>
+   <div class="bd" style="padding:0 14px 14px">${kv([["Business",sg.business_status==="SIGNED"?`${st("PASS","Signed")} by ${esc(sg.business_approver)} · ${esc(String(sg.business_at||"").replace("T"," ").slice(0,19))}`:st("PENDING")],
+     ["Technical",sg.technical_status==="SIGNED"?`${st("PASS","Signed")} by ${esc(sg.technical_approver)} · ${esc(String(sg.technical_at||"").replace("T"," ").slice(0,19))}`:st("PENDING")]])}
+   ${sg.business_status==="SIGNED"?`<p class="small muted" style="margin:4px 0 8px">Business rationale: ${esc(sg.business_rationale)}</p>`:""}
+   ${sg.technical_status==="SIGNED"?`<p class="small muted" style="margin:4px 0 8px">Technical rationale: ${esc(sg.technical_rationale)}</p>`:""}
+   ${LIVE?`<div class="form">
+     ${sg.business_status!=="SIGNED"?`<h3 style="margin:6px 0 4px">Record business sign-off</h3>
+      <label class="fld"><span>Your name and role</span><input type="text" id="sgBWho" autocomplete="name"></label>
+      <label class="fld"><span>Reason (at least 10 characters)</span><textarea id="sgBWhy" rows="2" style="width:100%;height:auto;padding:6px 8px"></textarea></label>
+      <p><button class="btn" id="sgBGo">Sign off (business)</button></p>`:""}
+     ${sg.technical_status!=="SIGNED"?`<h3 style="margin:6px 0 4px">Record technical sign-off</h3>
+      <label class="fld"><span>Your name and role</span><input type="text" id="sgTWho" autocomplete="name"></label>
+      <label class="fld"><span>Reason (at least 10 characters)</span><textarea id="sgTWhy" rows="2" style="width:100%;height:auto;padding:6px 8px"></textarea></label>
+      <p><button class="btn" id="sgTGo">Sign off (technical)</button></p>`:""}
+     <div class="small" style="color:var(--fail)" id="sgErr"></div></div>`:roNote("Recording sign-off")}</div>`:""}
    <div class="sect" style="padding:14px 14px 4px;border-top:1px solid var(--rule-2)"><h3 style="margin-bottom:6px">Score breakdown</h3></div>
    <div class="tw flush dims"><table><thead><tr><th>Dimension</th><th class="num">Weight</th><th class="num">Score</th></tr></thead><tbody>
-   ${Object.entries(a.dimensions).sort((x,y)=>y[1].score*y[1].weight-x[1].score*x[1].weight).map(([d,x])=>`<tr><td>${esc(human(d))}<div class="small muted">${esc(x.rationale)}</div>${bar(x.score,riskCls(x.score))}</td><td class="num">${Math.round(x.weight*100)}%</td><td class="num"><b style="font-weight:600">${x.score}</b></td></tr>`).join("")}
-   </tbody></table></div></div>`;
+   ${dimRows.map(([d,x])=>`<tr><td>${esc(human(d))}<div class="small muted">${esc(x.rationale)}</div>${bar(x.score,riskCls(x.score))}</td><td class="num">${Math.round(x.weight*100)}%</td><td class="num"><b style="font-weight:600">${x.score}</b></td></tr>`).join("")}
+   </tbody></table></div>
+   <div class="sect" style="padding:14px 14px 4px;border-top:1px solid var(--rule-2)"><h3 style="margin-bottom:6px">Risk follow-up</h3><p class="small muted" style="margin-bottom:6px">Track who owns closing each dimension and what's been done, independent of the score.</p></div>
+   <div class="bd" style="padding:0 14px 14px">${dimRows.map(([d,x])=>{
+     const it=(a.items||{})[d]||{};
+     return `<div class="sect" style="padding:8px 0;border-top:1px solid var(--rule-2)"><div style="display:flex;justify-content:space-between;align-items:center"><b style="font-weight:500">${esc(human(d))}</b>${st(it.status||"OPEN")}</div>
+      ${it.follow_up_note?`<p class="small muted" style="margin:2px 0">${esc(it.follow_up_note)}${it.follow_up_by?` — ${esc(it.follow_up_by)}`:""}</p>`:""}
+      ${LIVE?`<div class="row" style="gap:6px;flex-wrap:wrap;margin-top:4px">
+        <select class="rkStatus" data-dim="${esc(d)}" style="padding:4px 6px">${RK_TRACK.map(s=>`<option value="${s}" ${(it.status||"OPEN")===s?"selected":""}>${human(s)}</option>`).join("")}</select>
+        <input class="rkOwner" data-dim="${esc(d)}" type="text" placeholder="Owner" value="${esc(it.owner||"")}" style="width:140px;padding:4px 6px">
+        <input class="rkNote" data-dim="${esc(d)}" type="text" placeholder="Note" value="${esc(it.follow_up_note||"")}" style="flex:1;min-width:160px;padding:4px 6px">
+        <button class="btn" data-savedim="${esc(d)}">Save</button></div>`:""}</div>`}).join("")}
+   ${LIVE?`<div class="small" style="color:var(--fail)" id="rkfErr"></div>`:""}</div>
+   <div class="sect" style="padding:14px 14px 4px;border-top:1px solid var(--rule-2)"><h3 style="margin-bottom:6px">Post-cutover monitoring note</h3><p class="small muted" style="margin-bottom:6px">What to watch after go-live, and for how long. Shown here and on any validation object linked to this application.</p></div>
+   <div class="bd" style="padding:0 14px 14px">${LIVE?`<textarea id="mnNote" rows="3" style="width:100%;padding:6px 8px" placeholder="For example: compare daily row counts for two weeks post-cutover; alert if difference exceeds 0.1%.">${esc(mn.note||"")}</textarea>
+     <p style="margin-top:6px"><button class="btn" id="mnSave">Save note</button>${mn.updated_at?`<span class="small muted" style="margin-left:8px">Last saved ${esc(String(mn.updated_at).replace("T"," ").slice(0,19))} by ${esc(mn.updated_by)}</span>`:""}</p>`:
+     `<p class="small">${esc(mn.note||"No note recorded.")}</p>`}</div></div>`;
+  const g=id=>$("#"+id);
+  const pid=S.project.id, app=encodeURIComponent(a.application);
+  const signoff=(role,whoId,whyId,btnId)=>async e=>{const who=g(whoId).value.trim(),why=g(whyId).value.trim();
+    if(!who||why.length<10){g("sgErr").textContent="Enter your name and a reason of at least 10 characters.";return}
+    g(btnId).disabled=true;try{await api(`/api/v1/projects/${encodeURIComponent(pid)}/applications/${app}/signoff`,{role,approver:who,rationale:why});await refresh({k:"ok",html:`${role==="business"?"Business":"Technical"} sign-off recorded for ${esc(a.application)}.`})}
+    catch(er){g(btnId).disabled=false;g("sgErr").textContent=er.message}};
+  if(g("sgBGo"))g("sgBGo").onclick=signoff("business","sgBWho","sgBWhy","sgBGo");
+  if(g("sgTGo"))g("sgTGo").onclick=signoff("technical","sgTWho","sgTWhy","sgTGo");
+  $("#rkApp").querySelectorAll("[data-savedim]").forEach(b=>b.onclick=async()=>{
+    const d=b.dataset.savedim, row=b.closest(".sect");
+    const status=row.querySelector(".rkStatus").value, owner=row.querySelector(".rkOwner").value.trim(), note=row.querySelector(".rkNote").value.trim();
+    b.disabled=true;try{await api(`/api/v1/projects/${encodeURIComponent(pid)}/applications/${app}/risk/${encodeURIComponent(d)}/followup`,{tracking_status:status,owner,note});await refresh({k:"ok",html:`Follow-up saved for ${esc(human(d))}.`})}
+    catch(er){b.disabled=false;const el=$("#rkfErr");if(el)el.textContent=er.message}});
+  if(g("mnSave"))g("mnSave").onclick=async()=>{g("mnSave").disabled=true;
+    try{await api(`/api/v1/projects/${pid}/applications/${app}/monitoring-note`,{note:g("mnNote").value});await refresh({k:"ok",html:"Monitoring note saved."})}
+    catch(er){toast({k:"err",html:esc(er.message)});g("mnSave").disabled=false}};
 }
 
 /* ============================================================== 11 stakeholders */
@@ -1101,38 +1609,98 @@ function bStakeholders(){onTabs("sTabs",v=>{UI.sTab=v;sBody()});sBody()}
 function sBody(){
   if(UI.sTab==="owners"){
     $("#sBody").innerHTML=`<div id="oTbl"></div>`;
-    mountTable("#oTbl","tOwn",S.stakeholders,[{k:"application",l:"Application"},{k:"name",l:"Owner"},{k:"email",l:"Email",r:x=>esc(x.email||"")},{k:"type",l:"Role",r:x=>esc(human(x.type))},
-      {k:"owner_source",l:"Source",r:x=>`<span class="small mono">${esc(x.owner_source||"")}</span>`},{k:"verified",l:"Verified",r:x=>st(x.verified?"PASS":"FAIL",x.verified?"Verified":"Not verified")}],{sort:"application"});return}
-  const n=S.notifications, c=s=>n.filter(x=>x.status===s).length;
-  const app=x=>(S.stakeholders.find(s=>s.id===x.stakeholder_id)||{}).application||"Unknown";
+    const cols=[{k:"application",l:"Application"},{k:"name",l:"Owner"},{k:"email",l:"Email",r:x=>esc(x.email||"")},{k:"type",l:"Role",r:x=>esc(human(x.type))},
+      {k:"owner_source",l:"Source",r:x=>`<span class="small mono">${esc(x.owner_source||"")}</span>`},{k:"verified",l:"Verified",r:x=>st(x.verified?"PASS":"FAIL",x.verified?"Verified":"Not verified")}];
+    if(LIVE&&!isSample())cols.push({k:"act",l:"",s:false,r:x=>x.owner_source&&x.owner_source.startsWith("Entered manually")?
+      `<button class="btn" data-clearowner="${esc(x.application)}">Clear</button>`:`<button class="btn" data-enrich="${esc(x.application)}">${x.verified?"Change owner":"Enter owner"}</button>`});
+    mountTable("#oTbl","tOwn",S.stakeholders,cols,{sort:"application"});
+    $("#oTbl").querySelectorAll("[data-enrich]").forEach(b=>b.onclick=()=>ownerDlg(b.dataset.enrich));
+    $("#oTbl").querySelectorAll("[data-clearowner]").forEach(b=>b.onclick=async()=>{b.disabled=true;try{await api(`/api/v1/projects/${encodeURIComponent(S.project.id)}/applications/${encodeURIComponent(b.dataset.clearowner)}/owner`,null,"DELETE");await refresh({k:"ok",html:"Owner override cleared."})}catch(er){b.disabled=false;toast({k:"err",html:esc(er.message)})}});
+    return}
+  const n=S.notifications;
+  const app=x=>(S.stakeholders.find(s=>s.id===x.stakeholder_id)||{}).application||(x.event==="SOURCE_CONFIRMATION_REQUEST"?"Data availability":"Unknown");
   const apps=[...new Set(n.map(app))].sort();
-  $("#sBody").innerHTML=`<div class="toolbar">${seg("nStat",[["all","All",n.length],["DRAFT","Drafted",c("DRAFT")],["BLOCKED_OWNER_UNKNOWN","Owner unknown",c("BLOCKED_OWNER_UNKNOWN")]],UI.nStat)}
+  const F={all:()=>true,approve:x=>x.status==="DRAFT"&&x.delivery==="NOT_SENT"&&x.approval!=="APPROVED"&&x.approval!=="REJECTED",
+    ready:x=>x.approval==="APPROVED"&&x.delivery==="NOT_SENT",waiting:x=>x.delivery==="SENT",replied:x=>x.delivery==="REPLIED"||x.delivery==="BOUNCED",
+    blocked:x=>x.status!=="DRAFT"};
+  const cnt=k=>n.filter(F[k]).length;
+  const sm=S.notification_summary||{};
+  $("#sBody").innerHTML=`<p class="small muted" style="margin:0 0 10px;max-width:880px">Nothing is sent from the prototype. Approve a draft, send it from your own mail client, then record here that it was sent and what came back. An approval covers the exact text approved; editing it afterwards needs a new approval.${sm.objections?` <b style="color:var(--fail);font-weight:600">${sm.objections} repl${sm.objections===1?"y":"ies"} raised an objection.</b>`:""}</p>
+   <div class="toolbar">${seg("nStat",[["all","All",n.length],["approve","Needs approval",cnt("approve")],["ready","Approved, not sent",cnt("ready")],["waiting","Sent, no reply",cnt("waiting")],["replied","Replied or bounced",cnt("replied")],["blocked","Owner unknown",cnt("blocked")]],UI.nStat)}
    <label class="inline">Application <select id="nApp"><option value="">All applications</option>${apps.map(a=>`<option ${UI.nApp===a?"selected":""}>${esc(a)}</option>`).join("")}</select></label></div>
    <div class="split wide"><div id="nTbl"></div><aside class="panel" id="nPanel"></aside></div>`;
-  const draw=()=>{const rows=n.filter(x=>(UI.nStat==="all"||x.status===UI.nStat)&&(!UI.nApp||app(x)===UI.nApp));
-    mountTable("#nTbl","tNtf",rows,[{k:"app",l:"Application",s:app,r:x=>esc(app(x))},{k:"event",l:"Event",r:x=>esc(human(x.event))},{k:"recipient",l:"To",r:x=>x.recipient?esc(x.recipient):'<span class="muted">No verified owner</span>'},{k:"status",l:"Status",r:x=>st(x.status)}],
+  if(!F[UI.nStat])UI.nStat="all";
+  const draw=()=>{const rows=n.filter(x=>F[UI.nStat](x)&&(!UI.nApp||app(x)===UI.nApp));
+    mountTable("#nTbl","tNtf",rows,[{k:"app",l:"Application",s:app,r:x=>esc(app(x))},{k:"event",l:"Event",r:x=>esc(human(x.event))+(x.about_app&&x.about_app!==app(x)&&x.event.startsWith("MIGRATION_")?`<div class="small muted">about ${esc(x.about_app)}</div>`:"")},
+      {k:"recipient",l:"To",r:x=>x.recipient?esc(x.recipient):'<span class="muted">No verified owner</span>'},
+      {k:"approval",l:"Approval",r:x=>x.status!=="DRAFT"?st("BLOCKED_OWNER_UNKNOWN"):st(x.approval,x.approval==="PENDING"?"Awaiting approval":null)},
+      {k:"delivery",l:"Delivery",r:x=>x.status!=="DRAFT"?'<span class="muted small">Not drafted</span>':st(x.delivery)+(x.delivery==="REPLIED"&&x.tracking&&x.tracking.last_reply?` <span class="small">${tag(x.tracking.last_reply.outcome)}</span>`:"")}],
       {sort:"app",onSelect:r=>{UI.nSel=r.id;draw();nPanel(r)},selected:UI.nSel})};
   onSeg("nStat",v=>{UI.nStat=v;TS.tNtf&&(TS.tNtf.p=0);draw()});$("#nApp").onchange=e=>{UI.nApp=e.target.value;draw()};
-  draw();const sel=n.find(x=>x.id===UI.nSel);sel?nPanel(sel):$("#nPanel").innerHTML=panelEmpty("Select a draft to read it.");
+  draw();const sel=n.find(x=>x.id===UI.nSel);sel?nPanel(sel):$("#nPanel").innerHTML=panelEmpty("Select a draft to read it, approve it, and record what happened after you sent it.");
 }
 function nPanel(x){
-  $("#nPanel").innerHTML=panel(esc(human(x.event)),`${st(x.status)} · approval ${esc(human(x.approval).toLowerCase())}`,
-    x.status==="BLOCKED_OWNER_UNKNOWN"?`<div class="flash err"><div>No verified owner for this application, so no email was drafted. Add the owner to the ownership directory and re-run.</div></div><p class="small muted">Subject that would be used: ${esc(x.subject)}</p>`:
-    `<div class="mail"><dl class="mh" style="margin:0"><div><dt>To</dt><dd style="margin:0">${esc(x.recipient)}</dd></div><div><dt>Subject</dt><dd style="margin:0"><b style="font-weight:500">${esc(x.subject)}</b></dd></div></dl><div class="mb">${esc(x.body)}</div></div>
-     <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" id="nCopy">Copy text</button></div><p class="small muted" style="margin-top:8px">Drafts are not sent from the prototype. Copy the text into your mail client after review.</p>`);
+  const tr=x.tracking||{}, rec=x.approval_rec||{}, ed=x.edited, sent=tr.sent_snapshot, pid=encodeURIComponent(S.project.id);
+  const when=t=>esc(String(t||"").replace("T"," ").slice(0,16));
+  const mail=(to,subj,body)=>`<div class="mail"><dl class="mh" style="margin:0"><div><dt>To</dt><dd style="margin:0">${esc(to)}</dd></div><div><dt>Subject</dt><dd style="margin:0"><b style="font-weight:500">${esc(subj)}</b></dd></div></dl><div class="mb">${esc(body)}</div></div>`;
+  if(x.status==="BLOCKED_OWNER_UNKNOWN"){
+    $("#nPanel").innerHTML=panel(esc(human(x.event)),st(x.status),`<div class="flash err"><div>No verified owner for this application, so no e-mail was drafted. Enter the owner on the Owner directory tab.</div></div><p class="small muted">Subject that would be used: ${esc(x.subject)}</p>`);
+    closeBind("#nPanel",()=>{UI.nSel=null;sBody()});return}
+  const hist=[["Drafted",when(x.created_at)],ed?["Edited",`${esc(ed.by)}, ${when(ed.at)}`]:null,
+    rec.decision?[rec.decision==="APPROVED"?"Approved":"Rejected",`${esc(rec.approver)}, ${when(rec.at)}${rec.note?` · ${esc(rec.note)}`:""}`]:null,
+    tr.sent_at?["Sent",`${esc(tr.sent_by)} via ${esc(tr.channel)}, ${when(tr.sent_at)}`]:null,
+    tr.bounce_at?["Bounced",`${esc(tr.bounce_by)}, ${when(tr.bounce_at)}: ${esc(tr.bounce_note)}`]:null,
+    ...(tr.replies||[]).map(r=>["Reply",`${tag(r.outcome)} ${esc(r.from)}, ${when(r.at)}: ${esc(r.note)}`])].filter(Boolean);
+  const canEdit=LIVE&&x.delivery==="NOT_SENT";
+  $("#nPanel").innerHTML=panel(esc(human(x.event)),`${st(x.approval,x.approval==="PENDING"?"Awaiting approval":null)} · ${st(x.delivery)}`,
+    (x.approval==="CHANGED_SINCE_APPROVAL"?`<div class="flash warn"><div>The text changed after ${esc(rec.approver)} approved it, so the approval no longer covers it. Approve it again before sending.</div></div>`:"")+
+    (sent?`<h3 style="margin-top:0">As sent</h3>${mail(sent.to,sent.subject,sent.body)}`:mail(x.recipient,x.effective_subject,x.effective_body)+(ed?`<p class="small muted" style="margin-top:6px">Edited by ${esc(ed.by)}. The tool's own draft is kept and still updates in the background.</p>`:""))+
+    `<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn" id="nCopy">Copy text</button>${canEdit?`<button class="btn" id="nEdit">Edit</button>`:""}</div>
+     <h3>History</h3>${kv(hist)}
+     ${!LIVE?roNote("Approving and tracking e-mails"):
+      x.delivery==="NOT_SENT"&&x.approval!=="APPROVED"?`<div class="form"><h3 style="margin:0 0 6px">Approve this text</h3>
+        <label class="fld"><span>Your name and role</span><input type="text" id="nWho" autocomplete="name"></label>
+        <label class="fld"><span>Note (optional)</span><input type="text" id="nWhy"></label>
+        <div class="row"><button class="btn primary" id="nAppr">Approve</button><button class="btn" id="nRej">Reject</button></div></div>`:
+      x.delivery==="NOT_SENT"?`<div class="form"><h3 style="margin:0 0 6px">Record that you sent it</h3><p class="small muted" style="margin-bottom:6px">Send it from your own mail client first. This only records that it happened.</p>
+        <div class="fgrid"><label class="fld"><span>Sent by</span><input type="text" id="nWho" autocomplete="name"></label><label class="fld"><span>How</span><input type="text" id="nCh" value="E-mail"></label></div>
+        <p><button class="btn primary" id="nSent">Record as sent</button></p></div>`:
+      `<div class="form"><h3 style="margin:0 0 6px">Record what came back</h3>
+        <label class="fld"><span>Who replied (or who saw the bounce)</span><input type="text" id="nWho"></label>
+        <label class="fld"><span>Reply</span><select id="nOut"><option value="ACKNOWLEDGED">Acknowledged</option><option value="QUESTION">Asked a question</option><option value="OBJECTION">Objected</option></select></label>
+        <label class="fld"><span>What they said</span><textarea id="nNote" rows="2" style="width:100%;height:auto;padding:6px 8px"></textarea></label>
+        <div class="row"><button class="btn primary" id="nRep">Record reply</button>${x.delivery==="SENT"?`<button class="btn" id="nBnc">It bounced</button>`:""}</div></div>`}
+     <div class="small" style="color:var(--fail);margin-top:4px" id="nErr"></div>`);
   closeBind("#nPanel",()=>{UI.nSel=null;sBody()});
-  const b=$("#nCopy");if(b)b.onclick=async()=>{try{await navigator.clipboard.writeText(`To: ${x.recipient}\nSubject: ${x.subject}\n\n${x.body}`);b.textContent="Copied"}catch(e){b.textContent="Copy failed"}};
+  const g=id=>$("#"+id), err=m=>{const e=g("nErr");if(e)e.textContent=m};
+  const go=async(path,body,msg,btn)=>{try{btn.disabled=true;await api(`/api/v1/projects/${pid}/notifications/${x.id}/${path}`,body);await refresh({k:"ok",html:msg})}catch(e){btn.disabled=false;err(e.message)}};
+  const b=g("nCopy");if(b)b.onclick=async()=>{const t=sent||{to:x.recipient,subject:x.effective_subject,body:x.effective_body};try{await navigator.clipboard.writeText(`To: ${t.to}\nSubject: ${t.subject}\n\n${t.body}`);b.textContent="Copied"}catch(e){b.textContent="Copy failed"}};
+  if(g("nAppr"))g("nAppr").onclick=e=>go("approve",{approver:g("nWho").value,decision:"APPROVED",note:g("nWhy").value},"Draft approved. Send it from your mail client, then record it here.",e.target);
+  if(g("nRej"))g("nRej").onclick=e=>go("approve",{approver:g("nWho").value,decision:"REJECTED",note:g("nWhy").value},"Draft rejected.",e.target);
+  if(g("nSent"))g("nSent").onclick=e=>go("track",{action:"SENT",by:g("nWho").value,channel:g("nCh").value},"Recorded as sent.",e.target);
+  if(g("nRep"))g("nRep").onclick=e=>go("track",{action:"REPLIED",by:g("nWho").value,outcome:g("nOut").value,note:g("nNote").value},"Reply recorded.",e.target);
+  if(g("nBnc"))g("nBnc").onclick=e=>go("track",{action:"BOUNCED",by:g("nWho").value,note:g("nNote").value},"Bounce recorded.",e.target);
+  if(g("nEdit"))g("nEdit").onclick=()=>{
+    show("Edit e-mail",`<form id="neForm" novalidate><div id="neErr"></div>
+      <label class="fld"><span>Subject</span><input type="text" name="subject" value="${esc(x.effective_subject)}"></label>
+      <label class="fld"><span>Message</span><textarea name="body" rows="12" style="width:100%;height:auto;padding:6px 8px;font:inherit">${esc(x.effective_body)}</textarea></label>
+      <label class="fld"><span>Your name</span><input type="text" name="editor" autocomplete="name"></label>
+      ${rec.decision==="APPROVED"?`<p class="small muted">Saving changes means the approval by ${esc(rec.approver)} no longer covers this text.</p>`:""}
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px"><button class="btn" type="button" onclick="$('#dlg').close()">Cancel</button><button class="btn primary" type="submit" id="neGo">Save changes</button></div></form>`);
+    $("#neForm").onsubmit=async ev=>{ev.preventDefault();const f=new FormData(ev.target),bd={subject:String(f.get("subject")),body:String(f.get("body")),editor:String(f.get("editor"))};
+      $("#neGo").disabled=true;try{await api(`/api/v1/projects/${pid}/notifications/${x.id}/edit`,bd);$("#dlg").close();await refresh({k:"ok",html:"Changes saved."})}
+      catch(er){$("#neGo").disabled=false;$("#neErr").innerHTML=`<div class="flash err"><div>${esc(er.message)}</div></div>`}}};
 }
 
 /* ============================================================== 12 audit */
 function vAudit(){
   const a=S.audit;UI.aTab=UI.aTab||"approvals";
-  const desc={"migration_readiness_report.html":"Readiness report for review","migration_readiness_report.pdf":"Readiness report, printable","migration_report.xlsx":"All tables in one workbook","resources.csv":"Discovered resources","mappings.csv":"Service mappings","movement_plan.csv":"Data movement plan","batches.csv":"Load batches","validation_results.csv":"Validation checks","risks.csv":"Risk scores and gates","stakeholders.csv":"Owner directory","notifications.csv":"Stakeholder drafts","audit.csv":"Audit log"};
+  const desc={"migration_readiness_report.html":"Readiness report for review","migration_readiness_report.pdf":"Readiness report, printable","migration_report.xlsx":"All tables in one workbook","availability.csv":"Data availability check by dataset","resources.csv":"Discovered resources","mappings.csv":"Service mappings","movement_plan.csv":"Data movement plan","batches.csv":"Load batches","validation_results.csv":"Validation checks","risks.csv":"Risk scores and gates","stakeholders.csv":"Owner directory","notifications.csv":"Stakeholder drafts","audit.csv":"Audit log"};
   const sim=S.approvals.filter(x=>/SIMULATED/i.test(x.approver)).length;
   return head("audit","Exports for review and a tamper-evident record of every action and decision.")+`
   <div class="cols c2">
    <div class="box"><div class="hd"><h2>Exports</h2><span class="note">${(S.reports||[]).length} files</span></div>
-    <div class="tw flush"><table><thead><tr><th>File</th><th>Contents</th></tr></thead><tbody>${(S.reports||[]).map(r=>{const f=r.split("/").pop();return `<tr><td><a class="mono" href="${LIVE?"/api/v1/reports/"+esc(f):esc(r)}" target="_blank" rel="noopener">${esc(f)}</a></td><td class="small sub">${esc(desc[f]||"")}</td></tr>`}).join("")}</tbody></table></div></div>
+    <div class="tw flush"><table><thead><tr><th>File</th><th>Contents</th></tr></thead><tbody>${(S.reports||[]).map(r=>{const f=r.split("/").pop();return `<tr><td><a class="mono" href="${LIVE?"/api/v1/reports/"+esc(f)+pq():esc(r)}" target="_blank" rel="noopener">${esc(f)}</a></td><td class="small sub">${esc(desc[f]||"")}</td></tr>`}).join("")}</tbody></table></div></div>
    <div class="box"><div class="hd"><h2>Audit integrity</h2>${tag(a.chain.valid?"PASS":"FAIL",a.chain.valid?"Chain intact":"Chain broken")}</div><div class="bd">
     <p class="sub" style="margin-bottom:10px">${fmt(a.chain.events)} events. Each event stores the SHA-256 hash of the previous one, so any edit to history is detectable.</p>
     ${kv([["Latest hash",`<code>${esc(a.chain.head)}</code>`],["Approvals",`${S.approvals.length}${sim?`, of which ${sim} recorded by the demo script`:""}`],["Engine runs",`${S.agent_runs.length}, all completed with deterministic rules`]])}</div></div></div>
@@ -1152,19 +1720,76 @@ function aBody(){
   $("#aQ").oninput=e=>{UI.aQ=e.target.value;TS.tAud&&(TS.tAud.p=0);draw()};draw();
 }
 
+/* ============================================================== project start, empty states, new project */
+function vEmpty(id,title,text,acts){
+  return head(id,"")+`<div class="flash info" style="flex-direction:column;gap:6px"><b>${esc(title)}</b><div>${esc(text)}</div><div>${acts.map(([l,h])=>`<a class="btn" href="${h}">${esc(l)}</a>`).join(" ")}</div></div>`;
+}
+function vStart(){
+  const p=S.project, n=(S.stages||{}).files||0;
+  return head("overview","Nothing has been assessed in this project yet. Add the files that describe the AWS application, then run the assessment.")+`
+  <div class="panel-lite" style="border:1px solid var(--rule);border-radius:var(--r2);padding:6px 16px;background:var(--surface);margin-bottom:16px"><ol class="startlist">
+   <li class="${n?"done":""}"><div><b>Add files</b><span class="sub">Inventory exports, Terraform or CloudFormation, application code, ETL scripts, diagrams and ownership lists. ${n?`${n} accepted so far.`:"None added yet."}</span></div></li>
+   <li><div><b>Run the assessment</b><span class="sub">Finds resources and relationships, proposes Google Cloud services, converts supported code and estimates risk. It reads only the files you added.</span></div></li>
+   <li><div><b>Review and approve</b><span class="sub">Every service mapping stays pending until a person approves it.</span></div></li></ol>
+   <p style="margin:6px 0 12px"><a class="btn primary" href="#uploads">${n?"Go to Uploads":"Add files"}</a></p></div>
+  <div class="card" style="border:1px solid var(--rule);border-radius:var(--r2);padding:12px 16px;background:var(--surface)"><h3 style="margin:0 0 8px">Project details</h3>${kv([["Customer",esc(p.customer)],["Application",esc((p.config||{}).application)],["Owner",esc(p.owner)],["AWS account",esc(p.aws_account||"Not set")],["AWS region",esc(p.aws_region)],["GCP project",esc(p.gcp_project)],["GCP region",esc(p.gcp_region)],["Environment",esc((p.config||{}).environment)],["Criticality",esc((p.config||{}).criticality)],["Project ID",`<span class="mono">${esc(p.id)}</span>`]])}</div>`;
+}
+function bStart(){}
+function vNew(){
+  const f=(k,l,o={})=>`<label class="fld ${o.wide?"wide":""}" id="f_${k}"><span>${l}${o.req?" (required)":""}</span><input type="text" name="${k}" value="${esc(o.v||"")}" ${o.ph?`placeholder="${esc(o.ph)}"`:""} autocomplete="off">${o.hint?`<small>${o.hint}</small>`:""}<i class="fe" hidden></i></label>`;
+  const sel=(k,l,opts,v)=>`<label class="fld" id="f_${k}"><span>${l}</span><select name="${k}">${opts.map(x=>`<option ${x===v?"selected":""}>${x}</option>`).join("")}</select><i class="fe" hidden></i></label>`;
+  return `<div class="crumbs">Projects</div><div class="pagehead"><div><h1>New project</h1><p class="desc">One project per application or pipeline you are migrating. Account and project details are labels for the reports; the tool does not connect to AWS or Google Cloud.</p></div></div>
+  <form id="npForm" novalidate style="max-width:760px;border:1px solid var(--rule);border-radius:var(--r2);padding:16px;background:var(--surface)">
+   <div id="npErr"></div>
+   <div class="fgrid">${f("name","Project name",{req:1,wide:1,ph:"Retail orders, AWS to Google Cloud"})}
+    ${f("application","Application name",{ph:"RetailOrders",hint:"A label for this project. Resources are grouped by the application tag found in your files."})}${f("customer","Customer or business unit")}
+    ${f("owner","Migration owner",{ph:"Name and team"})}${sel("environment","Environment",["Prod","Non-prod","Dev","Test"],"Prod")}
+    ${sel("criticality","Business criticality",["Low","Medium","High","Critical"],"Medium")}<span></span>
+    ${f("aws_account","AWS account ID",{ph:"12 digits",hint:"Optional."})}${f("aws_region","AWS region",{v:"us-east-1"})}
+    ${f("gcp_project","GCP project ID",{ph:"my-migration-project",hint:"Lowercase letters, digits and hyphens."})}${f("gcp_region","GCP region",{v:"us-east1"})}</div>
+   <div style="display:flex;gap:8px;margin-top:6px"><button class="btn primary" type="submit" id="npGo">Create project</button><a class="btn" href="#overview">Cancel</a></div>
+  </form>`;
+}
+function bNew(){
+  const form=$("#npForm");
+  form.onsubmit=async e=>{e.preventDefault();
+    $$("#npForm label.fld").forEach(l=>{l.classList.remove("bad");const i=l.querySelector(".fe");if(i)i.hidden=true});$("#npErr").innerHTML="";
+    const body={};new FormData(form).forEach((v,k)=>{body[k]=String(v).trim()});
+    const bad=(k,m)=>{const l=$("#f_"+k);if(l){l.classList.add("bad");const i=l.querySelector(".fe");i.textContent=m;i.hidden=false}};
+    if(!LIVE){$("#npErr").innerHTML=`<div class="flash err"><div>Creating a project needs the live API. Start <code>uvicorn accelerator.api:app</code>.</div></div>`;return}
+    if(body.name.length<3){bad("name","Enter a project name of at least 3 characters.");$("#npErr").innerHTML=`<div class="flash err"><div>Check the highlighted fields.</div></div>`;form.querySelector("[name=name]").focus();return}
+    $("#npGo").disabled=true;$("#npGo").textContent="Creating";
+    try{const r=await api("/api/v1/projects",body);setPid(r.id);Object.keys(UI).forEach(k=>delete UI[k]);Object.keys(TS).forEach(k=>delete TS[k]);
+      await refresh();FLASH={k:"ok",html:`Project <b>${esc(r.name)}</b> created. Add the files that describe the application.`};location.hash="#uploads"}
+    catch(er){$("#npGo").disabled=false;$("#npGo").textContent="Create project";
+      if(er.errors)Object.entries(er.errors).forEach(([k,m])=>bad(k,m));
+      $("#npErr").innerHTML=`<div class="flash err"><div>${esc(er.message)}</div></div>`;const first=form.querySelector(".fld.bad input,.fld.bad select");if(first)first.focus()}};
+  form.querySelector("[name=name]").focus();
+}
+
 /* ============================================================== render */
-const VIEWS={overview:[vOverview,bOverview],uploads:[vUploads,bUploads],discovery:[vDiscovery,bDiscovery],dependencies:[vDeps,bDeps],mapping:[vMapping,bMapping],
+const VIEWS={availability:[vAvail,bAvail],new:[vNew,bNew],overview:[vOverview,bOverview],uploads:[vUploads,bUploads],discovery:[vDiscovery,bDiscovery],dependencies:[vDeps,bDeps],mapping:[vMapping,bMapping],
   conversion:[vConversion,bConversion],plan:[vPlan,bPlan],loads:[vLoads,bLoads],validation:[vValidation,bValidation],readiness:[vReadiness,bReadiness],
   stakeholders:[vStakeholders,bStakeholders],audit:[vAudit,bAudit]};
 function render(){
   const p=S.project;
   $("#pname").textContent=p.name;$("#simChip").hidden=!isSim();$("#pmeta").textContent=`${p.aws_region} to ${p.gcp_region}`;
-  $("#projPop").innerHTML=`<h3 style="margin-bottom:8px">${esc(p.name)}</h3>${kv([["Customer",esc(p.customer)],["Owner",esc(p.owner)],["AWS account",esc(p.aws_account)],["AWS region",esc(p.aws_region)],["GCP project",esc(p.gcp_project)],["GCP region",esc(p.gcp_region)],["Environment",esc(p.config.environment)],["Criticality",esc(p.config.criticality)],["Bandwidth",`${fmt(p.config.bandwidth_mbps)} Mbps`],["Catalogue",`${esc(S.catalogue.version)}, ${S.catalogue.entries} services`],["Project ID",`<span class="mono">${esc(p.id)}</span>`]])}`;
+  const pl=S.projects||[];
+  $("#projPop").innerHTML=(LIVE&&pl.length?`<h3 style="margin-bottom:6px">Projects</h3><ul class="plist">${pl.map(x=>`<li><button type="button" data-pid="${esc(x.id)}" aria-current="${x.id===p.id}"><span class="n">${esc(x.name)}</span><span class="m">${x.is_sample?"Sample":esc(human(x.status))}</span></button></li>`).join("")}</ul>
+    <p style="margin:0 0 12px"><a class="btn sm" href="#new" id="newBtn">New project</a></p>`:"")+`<h3 style="margin-bottom:8px">${esc(p.name)}</h3>${kv([["Customer",esc(p.customer)],["Owner",esc(p.owner)],["AWS account",esc(p.aws_account)],["AWS region",esc(p.aws_region)],["GCP project",esc(p.gcp_project)],["GCP region",esc(p.gcp_region)],["Environment",esc(p.config.environment)],["Criticality",esc(p.config.criticality)],["Application",esc(p.config.application)],["Bandwidth",p.config.bandwidth_mbps?`${fmt(p.config.bandwidth_mbps)} Mbps`:""],["Catalogue",`${esc(S.catalogue.version)}, ${S.catalogue.entries} services`],["Project ID",`<span class="mono">${esc(p.id)}</span>`]])}`;
   $("#mode").className="mode"+(LIVE?" live":"");$("#mode span").textContent=LIVE?"Live":"Snapshot, read-only";
-  $("#btnReset").hidden=!LIVE;
-  $("#btnReport").href=LIVE?"/api/v1/reports/migration_readiness_report.html":"reports/migration_readiness_report.html";
+  $("#btnReset").hidden=!(LIVE&&isSample());
+  $("#btnReport").href=LIVE?"/api/v1/reports/migration_readiness_report.html"+pq():"reports/migration_readiness_report.html";
+  $("#btnReport").hidden=!((S.reports||[]).some(x=>/migration_readiness_report\.html$/.test(x)));
+  $$("#projPop [data-pid]").forEach(b=>b.onclick=()=>{$("#projPop").classList.remove("on");if(b.dataset.pid!==p.id)switchTo(b.dataset.pid)});
+  const nb=$("#newBtn");if(nb)nb.onclick=()=>$("#projPop").classList.remove("on");
   renderNav();
-  const r=route(), [v,b]=VIEWS[r];
+  const r=route();
+  let [v,b]=VIEWS[r];
+  const st_=S.stages||{assessed:true,data_migration:true,sample:true};
+  if(!st_.assessed&&r==="overview"){v=vStart;b=bStart}
+  else if(!st_.assessed&&!["uploads","new","audit","availability"].includes(r)){v=()=>vEmpty(r,"Nothing to show yet","This screen is filled in by the assessment. Add your AWS files on Uploads, then run the assessment.",[["Go to Uploads","#uploads"]]);b=()=>{}}
+  else if(!st_.data_migration&&r==="loads"){v=()=>vEmpty(r,"No data has been loaded or compared","This project has files and an assessment, but no source or target data was connected, so nothing was loaded and nothing was reconciled. Reconciliation results are never shown for a project that has none.",[["Back to Overview","#overview"]]);b=()=>{}}
   document.title=`${TITLES[r][1]} · Migration Accelerator`;
   $("#main").innerHTML=v();b();
   FLASH=null;
@@ -1179,7 +1804,7 @@ $("#btnReset").onclick=async()=>{if(!confirm("Reset the demo run? Approvals and 
 
 async function load(){
   if(window.__STATE__){S=window.__STATE__;LIVE=false}
-  else{try{const r=await fetch("/api/v1/state");if(!r.ok)throw new Error(r.statusText);S=await r.json();LIVE=true}
+  else{try{let r=await fetch("/api/v1/state"+pq());if(r.status===404&&PID){setPid("");r=await fetch("/api/v1/state")}if(!r.ok)throw new Error(r.statusText);S=await r.json();LIVE=true}
     catch(e){$("#main").innerHTML=`<div class="flash err" style="margin:24px"><div><b>No project data found.</b> Start the API with <code>uvicorn accelerator.api:app</code>, or open the exported <code>console.html</code> from a demo run.</div></div>`;return}}
   render();
 }

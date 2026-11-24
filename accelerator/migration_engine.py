@@ -182,6 +182,9 @@ class DataMigrationEngine:
 
     # ---------------------------------------------------------- plan
     def create_plan(self, plan: dict) -> dict:
+        # columns of the source at planning time, so later schema drift can be detected (Round 7)
+        plan = {**plan, "source_columns_at_plan": [r[1] for r in self.source.conn.execute("PRAGMA table_info(analytics_orders)")
+                                                   if r[1] != "order_month"]}
         row = self.store.insert("migration_plans", {
             "id": new_id("PLAN-"), "project_id": self.project_id, "source_object": plan["source_object"],
             "target_object": plan["target_object"], "mode": plan["mode"], "range_start": plan["range_start"],
@@ -248,6 +251,7 @@ class DataMigrationEngine:
         attempt = (b.get("attempt") or 0) + 1
         cp = b.get("checkpoint") or {}
         upd: dict[str, Any] = {"attempt": attempt, "updated_at": now()}
+        self.store.update("migration_batches", b["id"], started_at=datetime.now(timezone.utc).isoformat(timespec="milliseconds"))
         try:
             if cp.get("stage") in (None, "PLANNED"):
                 m = self._extract(run_id, b["batch_key"], b["partition"], attempt)
@@ -283,6 +287,7 @@ class DataMigrationEngine:
                                                                                         "checkpoint": cp.get("stage")},
                                                         "owner": "Data Platform Lead", "remediation_status": "OPEN"})
             self.store.audit(self.project_id, self.actor, "BATCH_FAILED", "migration_batch", b["id"], {"error": str(e), "checkpoint": cp.get("stage")})
+        self.store.update("migration_batches", b["id"], ended_at=datetime.now(timezone.utc).isoformat(timespec="milliseconds"))
         return self.store.get("migration_batches", b["id"])
 
     # ---------------------------------------------------------- run types
@@ -300,8 +305,10 @@ class DataMigrationEngine:
             batches.append(self.store.insert("migration_batches", {
                 "id": new_id("BAT-"), "run_id": run_id, "batch_key": bk["batch_key"], "partition": bk["partition"],
                 "status": "PLANNED", "attempt": 0, "checkpoint": {"stage": "PLANNED"}, "updated_at": now()}))
-        # concurrency limit protects source/target; loads into the sim are serialized by sqlite
-        with ThreadPoolExecutor(max_workers=min(cfg.get("max_parallel_batches", 4), 4)) as ex:
+        # concurrency limit protects source/target; set on the plan (Load runs screen), capped for the simulated stores
+        limit = max(1, min(int(cfg.get("max_parallel_batches") or 4), 8))
+        self.store.update("migration_runs", run_id, max_parallel=limit)
+        with ThreadPoolExecutor(max_workers=limit) as ex:
             list(ex.map(lambda b: self._process_batch(run_id, b), batches))
         return self._finish_run(run_id)
 

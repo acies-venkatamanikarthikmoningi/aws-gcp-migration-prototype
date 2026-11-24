@@ -18,12 +18,21 @@ def build_html(st: dict) -> str:
     k = st["kpis"]
     p = st["project"]
     risk = list(st["risk"].values())
-    final = next(v for v in st["validations"] if v["id"] == st["migration"]["validations"]["orders_final"]["id"])
-    cust = next(v for v in st["validations"] if v["id"] == st["migration"]["validations"]["customer"]["id"])
-    non_pass = [r for v in (final, cust) for r in v["results"] if r["status"] != "PASS"]
+    mv = st["migration"].get("validations") or {}
+    ids = [mv[k]["id"] for k in ("orders_final", "customer") if k in mv]
+    non_pass = [r for v in st["validations"] if v["id"] in ids for r in v["results"] if r["status"] != "PASS"]
+    ran = bool(ids)
+    sample = (st.get("stages") or {}).get("sample", True)
     gates = [{"application": a["application"], "readiness": a["readiness"], "score": a["score"], "class": a["classification"],
               "blockers": "; ".join(f"{g['gate']}: {g['detail']}" for g in a["gates"] if g["status"] == "BLOCKED")} for a in risk]
     story = st["migration"]["story"]
+    av = (st.get("availability") or {}).get("datasets", [])
+    av_rows = [{"dataset": d["name"], "source_access": d["access_text"], "source_rows": (d["result"] or {}).get("source", {}).get("rows"),
+                "target_rows": (d["result"] or {}).get("target", {}).get("rows") if (d["result"] or {}).get("target") else "none",
+                "check": (d["result"] or {}).get("status", "NOT_RUN"), "where_it_stands": d["clearance"], "reason": d["clearance_reason"]} for d in av]
+    av_html = (_t(av_rows, ["dataset", "source_access", "source_rows", "target_rows", "check", "where_it_stands", "reason"]) +
+               "<p>Counts and keys are evidence of availability, not proof that every record is identical. Where the source was only visible as a staging copy, "
+               "the data owner has to confirm that every expected file arrived.</p>") if av else "<p>No datasets were added to the availability check for this project.</p>"
     css = ("body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#1f2933;margin:24px}h1{font-size:20px;margin:0}"
            "h2{font-size:14px;border-bottom:2px solid #1a73e8;padding-bottom:3px;margin-top:22px}table{border-collapse:collapse;width:100%;margin:6px 0}"
            "th,td{border:1px solid #d0d7de;padding:3px 5px;text-align:left;vertical-align:top}th{background:#eef3fb}"
@@ -38,8 +47,7 @@ def build_html(st: dict) -> str:
 <h1>AWS → GCP Migration Readiness &amp; Reconciliation Report</h1>
 <p>{html.escape(p['customer'])} · {html.escape(p['name'])} · project {p['id']} · generated {st['generated_at']}<br>
 AWS {p['aws_account']} {p['aws_region']} → GCP {p['gcp_project']} {p['gcp_region']} · mapping catalogue {st['catalogue']['version']}</p>
-<p class="note">Prototype run on synthetic data with simulated execution. Approvals marked “SIMULATED” are demo stand-ins for authorised users.
-No infrastructure was deployed and no e-mail was sent.</p>
+<p class="note">{"Prototype run on synthetic data with simulated execution. Approvals marked “SIMULATED” are demo stand-ins for authorised users. " if sample else "Assessment of the uploaded files only. No data was loaded or compared, so there is no reconciliation evidence in this report. "}No infrastructure was deployed and no e-mail was sent.</p>
 <h2>1. Summary</h2>{kp}
 <h2>2. Readiness gates by application</h2>{_t(gates, ['application', 'readiness', 'score', 'class', 'blockers'])}
 <h2>3. Discovery</h2><p>{json.dumps(st['discovery']['stats'])}</p>
@@ -48,10 +56,11 @@ No infrastructure was deployed and no e-mail was sent.</p>
 <h2>5. Data movement plan</h2>{_t(st['plan']['movement'], ['name', 'service', 'size_gb', 'estimated_transfer_hours', 'bulk_method', 'cutover_strategy'])}
 <h2>6. Migration waves</h2>{_t([{**w, 'applications': ', '.join(w['applications']), 'resources': ', '.join(w['resources'])} for w in st['plan']['waves']], ['wave', 'name', 'applications', 'resources'])}
 <h2>7. Conversion</h2>{_t(st['conversions'], ['source_file', 'converter', 'confidence', 'version'])}
-<h2>8. Historical load &amp; validation timeline</h2>{_t([{'step': s['step'], 'detail': json.dumps({k: v for k, v in s.items() if k not in ('step', 'at')}, default=str)[:300]} for s in story], ['step', 'detail'])}
-<h2>9. Reconciliation – non-PASS checks (final)</h2>{_t(non_pass, ['object', 'partition', 'dimension', 'rule', 'source_value', 'target_value', 'tolerance', 'status'])}
+<h2>8. Historical load &amp; validation timeline</h2>{_t([{'step': s['step'], 'detail': json.dumps({k: v for k, v in s.items() if k not in ('step', 'at')}, default=str)[:300]} for s in story], ['step', 'detail']) if story else '<p>Not run for this project.</p>'}
+<h2>9. Reconciliation – non-PASS checks (final)</h2>{_t(non_pass, ['object', 'partition', 'dimension', 'rule', 'source_value', 'target_value', 'tolerance', 'status']) if ran else '<p>Not run for this project: no source and target data was compared.</p>'}
 <h2>10. Stakeholders</h2>{_t(st['stakeholders'], ['application', 'name', 'email', 'type', 'verified', 'owner_source'])}
-<h2>11. Audit</h2><p>{st['audit']['chain']['events']} events · hash chain valid: {st['audit']['chain']['valid']}</p>
+<h2>11. Data availability before conversion</h2>{av_html}
+<h2>12. Audit</h2><p>{st['audit']['chain']['events']} events · hash chain valid: {st['audit']['chain']['valid']}</p>
 </body></html>"""
 
 
@@ -88,6 +97,13 @@ def write_reports(st: dict, outdir: Path) -> list[Path]:
                                ["validation_run_id", "run_type", "object", "partition", "dimension", "rule", "source_value", "target_value", "tolerance", "status", "severity"]),
         "risks": ([{"application": a, "dimension": d, **x} for a, v in st["risk"].items() for d, x in v["dimensions"].items()],
                   ["application", "dimension", "score", "weight", "rationale"]),
+        "availability": ([{"dataset": d["name"], "source_access": d["source_access"], "check": (d["result"] or {}).get("status", "NOT_RUN"),
+                           "where_it_stands": d["clearance"], "reason": d["clearance_reason"],
+                           "source_rows": ((d["result"] or {}).get("source") or {}).get("rows"),
+                           "target_rows": ((d["result"] or {}).get("target") or {}).get("rows"),
+                           "decision": (d["decision"] or {}).get("decision"), "decided_by": (d["decision"] or {}).get("approver"),
+                           "owner_confirmation": (d["confirmation"] or {}).get("status")} for d in (st.get("availability") or {}).get("datasets", [])],
+                         ["dataset", "source_access", "check", "where_it_stands", "reason", "source_rows", "target_rows", "decision", "decided_by", "owner_confirmation"]),
         "stakeholders": (st["stakeholders"], ["application", "name", "email", "type", "verified", "owner_source"]),
         "notifications": (st["notifications"], ["event", "recipient", "subject", "status"]),
         "audit": (st["audit"]["events"], ["seq", "ts", "actor", "action", "entity_type", "entity_id", "hash"]),
