@@ -21,7 +21,15 @@ from .ingestion import RejectedFile, check_content, classify, sha256_file
 from .orchestrator import CONVERTERS, ROOT, Orchestrator
 from .validation import ValidationEngine
 
-WORK = ROOT / "runs" / "api"
+import os
+
+WORK = Path(
+    os.environ.get(
+        "ACCEL_WORKDIR",
+        "/tmp/aws2gcp-migration-accelerator/runs/api"
+    )
+)
+
 UI = ROOT / "ui" / "index.html"
 app = FastAPI(title="AWS→GCP Migration Accelerator", version="1.1.0")
 _lock = threading.Lock()

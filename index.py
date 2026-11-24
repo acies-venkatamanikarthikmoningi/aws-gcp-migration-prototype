@@ -1,0 +1,1 @@
+from accelerator.api import app
