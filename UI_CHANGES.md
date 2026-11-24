@@ -18,6 +18,17 @@ Short transitions only, all under 0.3 s, and only in response to something the u
 Nothing moves on its own. All motion is turned off when the operating system asks for reduced motion.
 Measured in Chrome: every screen renders in under 20 ms and the dependency graph holds 60 frames per second while zooming and dragging.
 
+## Round 1: honesty labels
+
+Page only. No backend, API or test changes.
+
+- A "Simulated execution" marker sits in the top bar whenever the project uses synthetic accounts.
+- Validation runs that exist to be found are labelled: "Seeded test defect" (faults planted in the Google Cloud copy), "Simulated source change" (lag check) and "Sample mismatch data" (customer files). A banner on the run explains it, and the failing checks that come from the planted faults carry a "Seeded" tag. Overview says the same in the attention list.
+- Every validation check shows its evidence level: Aggregate, Content hash, Key-level, Row-level or Metadata. The panel explains what each level does and does not prove.
+- Code conversion says "Not run on Google Cloud" above every output, the list says "Static checks pass", and the bar is explained as the share of constructs handled, not correctness.
+- Every screen that makes proposals shows "Rules only" beside its title. It changes to "AI-assisted" once any engine run records a language model.
+- Overview has "Where things stand": eight areas by five states (validated automatically, needs a manual check, has a discrepancy, awaiting approval, approved to continue). Each count links to its screen, and every status chip carries its state as a tooltip.
+
 ## Design basis
 
 - Layout follows the patterns cloud consoles use for this kind of work (AWS Cloudscape, Google Cloud Migration Center, IBM Carbon tables):

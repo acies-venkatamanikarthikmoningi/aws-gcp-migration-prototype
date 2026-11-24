@@ -357,6 +357,19 @@ dialog .df{padding:10px 16px;border-top:1px solid var(--rule-2);display:flex;jus
 @keyframes panelIn{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
 @keyframes toastIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+.sim{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--review);background:#fbf3e4;border:1px solid #e3c88f;border-radius:var(--r);padding:3px 8px;white-space:nowrap}
+.sim i{width:7px;height:7px;background:var(--review);border-radius:1px}
+.meth{display:inline-block;vertical-align:middle;margin-left:10px;font-size:11px;font-weight:600;letter-spacing:0;color:var(--ink-2);border:1px solid var(--rule);background:var(--surface);border-radius:var(--r);padding:2px 7px;cursor:help}
+.meth.ai{color:var(--action);border-color:#b9cde8}
+.tag.seed{color:var(--review);border-color:#e3c88f;background:#fbf3e4}
+.ev{display:inline-block;font-size:11px;font-weight:600;color:var(--ink-2);border:1px solid var(--rule);border-radius:var(--r);padding:1px 6px;white-space:nowrap}
+.ev.row{color:var(--pass);border-color:#a9d3b9}.ev.key{color:var(--action);border-color:#b9cde8}
+.st5{width:100%;border-collapse:collapse}.st5 th,.st5 td{padding:7px 10px;border-bottom:1px solid var(--rule-2);text-align:right;font-size:13px}
+.st5 th:first-child,.st5 td:first-child{text-align:left}.st5 thead th{font-weight:600;color:var(--ink-2);font-size:12px}
+.st5 td a{display:inline-block;min-width:22px;padding:1px 6px;border-radius:var(--r);font-weight:600;text-decoration:none}
+.st5 td a:hover{background:var(--canvas)}.st5 td .z{color:var(--ink-3)}
+.st5 .c-validated a{color:var(--pass)}.st5 .c-manual a{color:var(--review)}.st5 .c-discrepancy a{color:var(--fail)}.st5 .c-awaiting a{color:var(--action)}.st5 .c-approved a{color:var(--waived)}
+.legend5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;padding:10px 14px;font-size:12px;color:var(--ink-2)}.legend5 b{display:block;color:var(--ink);font-weight:600}
 </style>
 </head>
 <body>
@@ -370,6 +383,7 @@ dialog .df{padding:10px 16px;border-top:1px solid var(--rule-2);display:flex;jus
     <div class="popover" id="projPop" role="dialog" aria-label="Project details"></div>
   </div>
   <div class="top-right">
+    <div class="sim" id="simChip" hidden title="AWS and Google Cloud are stood in for by local sample files. No real cloud account is read or changed."><i></i><span>Simulated execution</span></div>
     <div class="mode" id="mode"><i></i><span></span></div>
     <button class="btn" id="btnReset" hidden>Reset demo run</button>
     <a class="btn primary" id="btnReport" href="#" target="_blank" rel="noopener">Readiness report</a>
@@ -400,11 +414,55 @@ const TONE={pass:["PASS","APPROVED","LOADED","COMPLETED","CORROBORATED","CONFIRM
   waived:["WAIVED"],info:["DRAFT","CAPTURED","RUNNING"]};
 const tone=v=>{for(const[k,a]of Object.entries(TONE))if(a.includes(v))return k;return"neutral"};
 const LABEL={BLOCKED_OWNER_UNKNOWN:"Owner unknown",READY_FOR_SIGNOFF:"Ready for sign-off",COMPLETED_WITH_FAILURES:"Completed with failures",INVENTORY_ONLY:"Inventory only",IAC_ONLY:"IaC only",NOT_RUN:"Not run"};
-const st=(v,label)=>`<span class="st ${tone(v)}">${esc(label??LABEL[v]??human(v))}</span>`;
-const tag=(v,label)=>`<span class="tag ${tone(v)}">${esc(label??LABEL[v]??human(v))}</span>`;
+const st=(v,label)=>`<span class="st ${tone(v)}"${stateTip(v)}>${esc(label??LABEL[v]??human(v))}</span>`;
+const tag=(v,label)=>`<span class="tag ${tone(v)}"${stateTip(v)}>${esc(label??LABEL[v]??human(v))}</span>`;
 const bar=(pct,cls="")=>`<div class="bar ${cls}"><i style="width:${Math.max(0,Math.min(100,pct))}%"></i></div>`;
 const riskCls=s=>s>=75?"fail":s>=50?"review":"pass";
 const clsCls=c=>({Critical:"fail",High:"review",Medium:"review",Low:"pass"}[c]||"action");
+
+/* ---- honesty helpers: what is simulated, how outputs were produced, how strong the evidence is */
+const isSim=()=>S&&S.project&&/synthetic|prototype/i.test(`${S.project.aws_account||""} ${S.project.customer||""}`);
+const aiOn=()=>!!(S&&S.agent_runs&&S.agent_runs.some(a=>a.model_version&&!/llm\s*=\s*none/i.test(a.model_version)));
+const METH_SCREENS=["discovery","dependencies","mapping","conversion","plan","validation","readiness","stakeholders"];
+const methBadge=id=>METH_SCREENS.includes(id)?(aiOn()
+  ?`<span class="meth ai" title="Explanations come from a language model. Counts, hashes, scores and comparisons are always computed in code.">AI-assisted</span>`
+  :`<span class="meth" title="Every result on this screen comes from deterministic rules and code. No language model is connected, so nothing here is a model's opinion.">Rules only</span>`):"";
+/* scenario of a validation run, read from the recorded run story */
+function scenarioOf(v){
+  const story=(S.migration&&S.migration.story)||[];
+  const at=story.find(x=>x.validation_run===v.id); if(!at) return null;
+  const seed=story.find(x=>/^SEEDED DEFECTS/.test(x.step));
+  if(/^VALIDATE \(post-load\)/.test(at.step)&&seed){
+    const raw=Array.isArray(seed.partitions)?seed.partitions:[];
+    return {tag:"Seeded test defect",parts:raw.map(x=>String(x).split(" ")[0]),
+      note:`Faults were planted in the Google Cloud copy on purpose: ${raw.join("; ")}. They are there so the checks have something to find. The failures in this run are expected test results, not real data loss.`};}
+  if(/^SOURCE CHANGED/.test(at.step))
+    return {tag:"Simulated source change",parts:[],note:`The AWS sample source was changed after the baseline on purpose${at.changes?` (${at.changes} changes)`:""} so the lag check has something to find. The failure is an expected test result.`};
+  if(/^CUSTOMER exact/.test(at.step))
+    return {tag:"Sample mismatch data",parts:[],note:"The customer sample files differ on purpose (blueprint section 12.4) so exact reconciliation has something to find. The failure is an expected test result."};
+  return null;
+}
+const seedTag=t=>`<span class="tag seed">${esc(t)}</span>`;
+/* strength of the evidence behind one check */
+function evLevel(r,v){
+  const strat=((v.summary||{}).strategy||{}).strategy||"";
+  if(/exact/i.test(strat)) return ["Row-level","row","Every row was compared by key."];
+  if(r.dimension==="row_diff") return ["Key-level","key","Rows were compared by key inside a partition that failed."];
+  if(r.dimension==="hash") return ["Content hash","key","An order-independent hash of every row in the partition. It proves the content matches, but not which row differs."];
+  if(r.dimension==="schema"||r.dimension==="coverage") return ["Metadata","","Compares structure only: columns, types, and which partitions exist."];
+  return ["Aggregate","","Totals match, which is evidence but not proof that every record is identical."];
+}
+const evTag=(r,v)=>{const[l,c,t]=evLevel(r,v);return `<span class="ev ${c}" title="${esc(t)}">${esc(l)}</span>`};
+/* the five states every item is in */
+const STATE5={validated:["Validated automatically","Checked by the tool and passing."],manual:["Needs a manual check","The tool could not decide. A person has to verify it."],
+  discrepancy:["Has a discrepancy","A difference or problem was found."],awaiting:["Awaiting approval","Waiting for someone to approve, confirm or send it."],approved:["Approved to continue","A person approved it, or recorded a waiver."]};
+const STATE_OF={PASS:"validated",CORROBORATED:"validated",CONFIRMED:"validated",ACCEPTED:"validated",
+  REVIEW:"manual",NOT_RUN:"manual",NEEDS_REVIEW:"manual",INFERRED:"manual",OPEN:"manual",BLOCKED_OWNER_UNKNOWN:"manual",WARN:"manual",DUPLICATE:"manual",CONDITIONAL:"manual",PENDING_REVIEW:"manual",INVENTORY_ONLY:"manual",IAC_ONLY:"manual",
+  FAIL:"discrepancy",FAILED:"discrepancy",CONFLICT:"discrepancy",COMPLETED_WITH_FAILURES:"discrepancy",REJECTED:"discrepancy",
+  PENDING:"awaiting",DRAFT:"awaiting",BLOCKED:"awaiting",
+  APPROVED:"approved",WAIVED:"approved",READY_FOR_SIGNOFF:"approved"};
+const state5=v=>STATE_OF[v]||null;
+const stateTip=v=>{const k=state5(v);return k?` title="${esc(STATE5[k][0])}. ${esc(STATE5[k][1])}"`:""};
 
 /* ============================================================== navigation */
 const NAV=[
@@ -439,7 +497,7 @@ function head(id,desc,acts=""){
   const[g,n]=TITLES[id];
   return `${FLASH?`<div class="flash ${FLASH.k}" role="status"><div>${FLASH.html}</div><button aria-label="Dismiss" onclick="FLASH=null;this.parentNode.remove()">×</button></div>`:""}
   <div class="crumbs">${esc(S.project.name)}${g?" / "+esc(g):""}</div>
-  <div class="pagehead"><div><h1>${esc(n)}</h1>${desc?`<p class="desc">${desc}</p>`:""}</div>${acts?`<div class="acts">${acts}</div>`:""}</div>`;
+  <div class="pagehead"><div><h1>${esc(n)}${methBadge(id)}</h1>${desc?`<p class="desc">${desc}</p>`:""}</div>${acts?`<div class="acts">${acts}</div>`:""}</div>`;
 }
 function seg(id,opts,cur){return `<div class="seg" role="group" id="${id}">${opts.map(([v,l,c])=>`<button type="button" data-v="${esc(v)}" aria-pressed="${v===cur}">${esc(l)}${c!=null?`<b>${fmt(c)}</b>`:""}</button>`).join("")}</div>`}
 function onSeg(id,fn){$$(`#${id} button`).forEach(b=>b.onclick=()=>{$$(`#${id} button`).forEach(x=>x.setAttribute("aria-pressed",x===b));fn(b.dataset.v)})}
@@ -491,7 +549,7 @@ function vOverview(){
   const blocked=risks.filter(r=>r.readiness==="BLOCKED");
   const run=S.migration.runs.find(r=>r.run_type==="FULL_HISTORICAL_BACKFILL");
   const attn=[];
-  lv.filter(v=>v.status==="FAIL").forEach(v=>attn.push(["fail",`${v.object} failed reconciliation`,`${(v.summary||{}).FAIL||0} of ${(v.summary||{}).checks||0} checks failed in ${human(v.run_type).toLowerCase()}.`,"validation",`Review checks`]));
+  lv.filter(v=>v.status==="FAIL").forEach(v=>{const sc=scenarioOf(v);attn.push(["fail",`${v.object} failed reconciliation${sc?" ("+sc.tag.toLowerCase()+")":""}`,`${(v.summary||{}).FAIL||0} of ${(v.summary||{}).checks||0} checks failed in ${human(v.run_type).toLowerCase()}.${sc?" Planted on purpose for the demo, not real data loss.":""}`,"validation",`Review checks`])});
   const keys=S.discovery.findings.filter(f=>/key|password|secret|private/i.test(f.kind));
   if(keys.length)attn.push(["fail",`${keys.length} hard-coded credential${keys.length>1?"s":""} found in code`,keys.map(f=>f.location).join(", ")+". Rotate before cutover.","discovery","View findings"]);
   const pend=S.mappings.filter(m=>m.approval_status==="PENDING");
@@ -520,6 +578,7 @@ function vOverview(){
    <div class="box"><div class="hd"><h2>Progress by stage</h2></div>
     <ol class="stages">${stages.map(([t,d,s,to],i)=>`<li><span class="n">${i+1}</span><div><a href="#${to}" class="t" style="color:var(--ink)">${esc(t)}</a><div class="d">${esc(d)}</div></div>${s}</li>`).join("")}</ol></div>
   </div>
+  <div class="box" style="margin-top:16px"><div class="hd"><h2>Where things stand</h2><span class="note">Every item is in one of five states</span></div>${stateTable()}</div>
   <div class="cols c21" style="margin-top:16px">
    <div class="sect"><h2>Applications</h2><div id="ovApps"></div></div>
    <div class="sect"><h2>Migration strategy</h2>
@@ -529,6 +588,23 @@ function vOverview(){
   </div>
   <details class="box log" style="margin-top:16px"><summary>Run log <span class="muted" style="font-weight:400;margin-left:8px">${S.migration.story.length} steps recorded for the orders backfill</span></summary>
    <ol class="logl">${S.migration.story.map((s,i)=>`<li><span class="n">${i+1}</span><span>${esc(human(s.step))}${s.status?" "+st(s.status):""}</span><span class="small sub">${esc(Object.entries(s).filter(([x])=>!["step","at","status","summary","totals"].includes(x)).map(([x,v])=>`${x.replace(/_/g," ")}: ${typeof v==="object"?JSON.stringify(v):v}`).join("; "))}</span></li>`).join("")}</ol></details>`;
+}
+function stateTable(){
+  const lv=latestValidations(), res=lv.flatMap(v=>v.results);
+  const areas=[
+    ["Service mappings",S.mappings.map(m=>m.approval_status),"mapping"],
+    ["Discovered resources",S.discovery.resources.map(r=>r.evidence_status),"discovery"],
+    ["Dependencies",S.graph.edges.map(e=>e.status),"dependencies"],
+    ["Converted artefacts",S.conversions.map(()=>"PENDING"),"conversion"],
+    ["Validation checks (latest runs)",res.map(r=>r.status),"validation"],
+    ["Sign-off gates",Object.values(S.risk).flatMap(r=>r.gates.map(g=>g.status)),"readiness"],
+    ["Stakeholder emails",S.notifications.map(n=>n.status),"stakeholders"],
+    ["Uploaded files",S.uploads.map(u=>u.status),"uploads"]];
+  const keys=Object.keys(STATE5);
+  const rows=areas.map(([n,vals,to])=>{const c=Object.fromEntries(keys.map(k=>[k,0]));vals.forEach(v=>{const k=state5(v);if(k)c[k]++});return [n,c,to]});
+  return `<div class="tw flush"><table class="st5"><thead><tr><th>Area</th>${keys.map(k=>`<th title="${esc(STATE5[k][1])}">${esc(STATE5[k][0])}</th>`).join("")}</tr></thead><tbody>
+  ${rows.map(([n,c,to])=>`<tr><td>${esc(n)}</td>${keys.map(k=>`<td class="c-${k}">${c[k]?`<a href="#${to}">${fmt(c[k])}</a>`:'<span class="z">0</span>'}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+  <div class="legend5">${keys.map(k=>`<div><b>${esc(STATE5[k][0])}</b>${esc(STATE5[k][1])}</div>`).join("")}</div>`;
 }
 function bOverview(){
   const rows=Object.values(S.risk);
@@ -779,7 +855,7 @@ function vConversion(){
   <div class="cols" style="grid-template-columns:300px minmax(0,1fr);align-items:start">
    <div class="box"><div class="hd"><h2>Artefacts</h2><span class="note">${c.length}</span></div><ul class="flist" id="cList" role="listbox" aria-label="Converted artefacts">${c.map(x=>{const fails=x.checks.filter(k=>k.status==="FAIL").length,warns=x.checks.filter(k=>k.status!=="PASS").length+x.unsupported.length;
      return `<li role="option" tabindex="0" data-id="${esc(x.id)}" aria-selected="${x.id===UI.cSel}"><div class="f">${esc(x.source_file)}</div><div class="m"><span>${esc(x.converter)}</span></div>
-     <div class="m"><span class="barcell" style="grid-template-columns:70px 30px">${bar(x.confidence*100,x.confidence<.75?"review":"pass")}<span>${x.confidence}</span></span>${fails?st("FAIL",`${fails} failed`):warns?st("REVIEW",`${warns} to check`):st("PASS","Checks pass")}</div></li>`}).join("")}</ul></div>
+     <div class="m"><span class="barcell" title="Share of constructs the conversion rules handled. It is not a measure of correctness." style="grid-template-columns:70px 30px">${bar(x.confidence*100,x.confidence<.75?"review":"pass")}<span>${x.confidence}</span></span>${fails?st("FAIL",`${fails} failed`):warns?st("REVIEW",`${warns} to check`):st("PASS","Static checks pass")}</div></li>`}).join("")}</ul></div>
    <div id="cWork"></div></div>`;
 }
 function bConversion(){
@@ -798,6 +874,7 @@ function cWork(){
   const f=x=>`${x.length}`;
   $("#cWork").innerHTML=`<div class="box"><div class="hd"><div><h2 class="mono" style="font-size:14px">${esc(c.source_file)}</h2><div class="small muted">${esc(c.converter)} ${esc(c.version)} · ${esc(c.application||"")} · ${c.constructs_converted} of ${c.constructs_total} constructs converted</div></div>
    <div style="display:flex;gap:8px;align-items:center">${tag("REVIEW","Awaiting review")}<button class="btn sm" id="cZip">Download (.zip)</button></div></div>
+   <div class="flash info" style="margin:0 14px 10px"><div><b>Not run on Google Cloud.</b> Checks cover syntax, parsing and policy rules only. This output has not been executed or deployed, so a pass here does not prove it works.</div></div>
    <div style="padding:0 14px">${tabs("cTabs",[["code","Code"],["find","Findings",c.warnings.length+c.unsupported.length+c.manual_actions.length],["checks","Checks",c.checks.length],["log","Rule log",c.mapping_log.length]],UI.cTab)}</div>
    <div id="cBody"></div></div>`;
   onTabs("cTabs",v=>{UI.cTab=v;cBody(c,outs,hl)});
@@ -936,7 +1013,7 @@ function bValidation(){
   const draw=()=>mountTable("#vRuns","tVal",vs,[
     {k:"created_at",l:"Time",r:x=>`<span class="nowrap">${esc(time(x.created_at))}</span>`},{k:"object",l:"Object",r:x=>`<span class="mono">${esc(x.object)}</span>`},
     {k:"run_type",l:"Stage",r:x=>esc(human(x.run_type))},{k:"label",l:"Scope",s:false,r:x=>esc((x.source_snapshot||{}).label||"Full table")},
-    {k:"status",l:"Outcome",r:x=>st(x.status)},
+    {k:"status",l:"Outcome",r:x=>{const sc=scenarioOf(x);return st(x.status)+(sc?`<div style="margin-top:3px">${seedTag(sc.tag)}</div>`:"")}},
     {k:"s",l:"Checks",s:false,r:x=>{const s=x.summary||{};return `<span class="small">${["PASS","FAIL","REVIEW","WAIVED","NOT_RUN"].filter(k=>s[k]).map(k=>`<span style="color:var(--${tone(k)==="neutral"?"neutral":tone(k)});margin-right:10px">${s[k]} ${human(k).toLowerCase()}</span>`).join("")}</span>`}}],
     {onSelect:r=>{UI.vSel=r.id;UI.rSel=null;draw();vRun()},selected:UI.vSel});
   draw();vRun();
@@ -953,6 +1030,8 @@ function vRun(){
    ${keys.length?`<div class="recon"><div><h3>AWS source</h3><table>${keys.map(k=>`<tr><td>${esc(human(k))}</td><td class="mono">${esc(fmt(src[k]))}</td></tr>`).join("")}</table></div>
      <div><h3>Google Cloud target</h3><table>${keys.map(k=>`<tr><td>${esc(human(k))}</td><td class="mono">${esc(fmt(tgt[k]))}</td></tr>`).join("")}</table></div>
      <div><h3>Difference</h3><table>${keys.map(k=>{const d=dl(k);return `<tr><td>${esc(human(k))}</td><td class="${d==="Match"?"":"delta-bad"}">${esc(d)}</td></tr>`}).join("")}</table></div></div>`:""}
+   ${scenarioOf(v)?`<div class="flash info"><div><b>${esc(scenarioOf(v).tag)}.</b> ${esc(scenarioOf(v).note)}</div></div>`:""}
+   <div class="small muted" style="padding:0 0 10px">Matching totals are evidence, not proof that every record is identical. Partition hashes add content-level evidence, and key-level comparison runs only where a partition fails. The Evidence column shows which level backs each check.</div>
    ${(v.exceptions||[]).length?`<div class="flash err"><div><b>${v.exceptions.length} open exception${v.exceptions.length>1?"s":""}</b> assigned to ${esc([...new Set(v.exceptions.map(e=>e.owner))].join(", "))}.</div></div>`:""}
    <div class="toolbar">${seg("rStat",[["nonpass","Not passing",cnt("nonpass")],["all","All",cnt("all")],["FAIL","Failed",cnt("FAIL")],["REVIEW","Review",cnt("REVIEW")],["WAIVED","Waived",cnt("WAIVED")],["NOT_RUN","Not run",cnt("NOT_RUN")]],UI.rStat)}
     <label class="inline">Check type <select id="rDim"><option value="">All types</option>${[...new Set(res.map(r=>r.dimension))].sort().map(d=>`<option ${UI.rDim===d?"selected":""} value="${esc(d)}">${esc(human(d))}</option>`).join("")}</select></label></div>
@@ -960,7 +1039,8 @@ function vRun(){
   const ord={FAIL:0,REVIEW:1,NOT_RUN:2,WAIVED:3,PASS:4};
   const draw=()=>{const rows=res.filter(r=>(UI.rStat==="all"||(UI.rStat==="nonpass"?r.status!=="PASS":r.status===UI.rStat))&&(!UI.rDim||r.dimension===UI.rDim));
     mountTable("#rTbl","tRes",rows,[
-      {k:"status",l:"Result",s:x=>ord[x.status],r:x=>st(x.status)},{k:"rule",l:"Check",r:x=>`${esc(x.rule)}<div class="small muted">${esc(human(x.dimension))}${x.partition?" · "+esc(x.partition):""}</div>`},
+      {k:"status",l:"Result",s:x=>ord[x.status],r:x=>st(x.status)},{k:"rule",l:"Check",r:x=>{const sc=scenarioOf(v);const sd=sc&&sc.parts.length&&x.status==="FAIL"&&(!x.partition||sc.parts.includes(x.partition));return `${esc(x.rule)}${sd?" "+seedTag("Seeded"):""}<div class="small muted">${esc(human(x.dimension))}${x.partition?" · "+esc(x.partition):""}</div>`}},
+      {k:"ev",l:"Evidence",s:x=>evLevel(x,v)[0],r:x=>evTag(x,v)},
       {k:"source_value",l:"AWS",num:true,r:x=>`<span class="mono trunc" title="${esc(x.source_value)}">${esc(x.source_value)}</span>`},{k:"target_value",l:"Google Cloud",num:true,r:x=>`<span class="mono trunc" title="${esc(x.target_value)}">${esc(x.target_value)}</span>`},
       {k:"tolerance",l:"Tolerance",r:x=>`<span class="small">${esc(x.tolerance)}</span>`}],{sort:"status",onSelect:r=>{UI.rSel=r.id;draw();rPanel(r,v)},selected:UI.rSel})};
   onSeg("rStat",x=>{UI.rStat=x;TS.tRes&&(TS.tRes.p=0);draw()});$("#rDim").onchange=e=>{UI.rDim=e.target.value;draw()};
@@ -971,7 +1051,7 @@ function rPanel(r,v){
   const rest=Object.entries(d).filter(([k])=>k!=="detail");
   $("#rPanel").innerHTML=panel(esc(r.rule),`${esc(human(r.dimension))}${r.partition?" · partition "+esc(r.partition):""} · ${st(r.status)}`,
     `<div class="compare"><div><div class="k">AWS source</div><div class="v">${esc(r.source_value||"–")}</div></div><div><div class="k">Google Cloud target</div><div class="v">${esc(r.target_value||"–")}</div></div></div>`+
-    kv([["Tolerance",esc(r.tolerance)],["Severity",esc(human(r.severity))],["Finding",esc(d.detail)],["Exception",ex?`${st(ex.remediation_status==="OPEN"?"OPEN":"PASS",human(ex.remediation_status))} owner ${esc(ex.owner)}, ${esc(human(ex.severity).toLowerCase())}`:""]])+
+    kv([["Evidence level",`${evTag(r,v)} <span class="small muted">${esc(evLevel(r,v)[2])}</span>`],["Tolerance",esc(r.tolerance)],["Severity",esc(human(r.severity))],["Finding",esc(d.detail)],["Exception",ex?`${st(ex.remediation_status==="OPEN"?"OPEN":"PASS",human(ex.remediation_status))} owner ${esc(ex.owner)}, ${esc(human(ex.severity).toLowerCase())}`:""]])+
     (rest.length?`<h3>Evidence</h3>${rest.every(([,x])=>typeof x!=="object"||x===null)?kv(rest.map(([k,x])=>[human(k),esc(x)])):`<pre class="json">${esc(JSON.stringify(Object.fromEntries(rest),null,2))}</pre>`}`:"")+
     (r.status==="FAIL"||r.status==="REVIEW"?`<div class="form">${LIVE?`<h3 style="margin:0 0 4px">Record a waiver</h3><p class="small muted" style="margin-bottom:8px">A waiver accepts this difference for a limited time. It is written to the audit log with your name.</p>
       <label class="fld"><span>Approver (data owner)</span><input type="text" id="wWho" placeholder="Name and role"></label>
@@ -1078,7 +1158,7 @@ const VIEWS={overview:[vOverview,bOverview],uploads:[vUploads,bUploads],discover
   stakeholders:[vStakeholders,bStakeholders],audit:[vAudit,bAudit]};
 function render(){
   const p=S.project;
-  $("#pname").textContent=p.name;$("#pmeta").textContent=`${p.aws_region} to ${p.gcp_region}`;
+  $("#pname").textContent=p.name;$("#simChip").hidden=!isSim();$("#pmeta").textContent=`${p.aws_region} to ${p.gcp_region}`;
   $("#projPop").innerHTML=`<h3 style="margin-bottom:8px">${esc(p.name)}</h3>${kv([["Customer",esc(p.customer)],["Owner",esc(p.owner)],["AWS account",esc(p.aws_account)],["AWS region",esc(p.aws_region)],["GCP project",esc(p.gcp_project)],["GCP region",esc(p.gcp_region)],["Environment",esc(p.config.environment)],["Criticality",esc(p.config.criticality)],["Bandwidth",`${fmt(p.config.bandwidth_mbps)} Mbps`],["Catalogue",`${esc(S.catalogue.version)}, ${S.catalogue.entries} services`],["Project ID",`<span class="mono">${esc(p.id)}</span>`]])}`;
   $("#mode").className="mode"+(LIVE?" live":"");$("#mode span").textContent=LIVE?"Live":"Snapshot, read-only";
   $("#btnReset").hidden=!LIVE;
