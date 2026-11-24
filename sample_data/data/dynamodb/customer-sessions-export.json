@@ -1,0 +1,5 @@
+{"Item": {"session_id": {"S": "s-0"}, "customer_id": {"N": "1001"}, "tags": {"SS": ["web"]}, "active": {"BOOL": true}, "attrs": {"M": {"device": {"S": "android"}}}}}
+{"Item": {"session_id": {"S": "s-1"}, "customer_id": {"N": "1002"}, "tags": {"SS": ["web", "mobile"]}, "active": {"BOOL": false}, "attrs": {"M": {"device": {"S": "ios"}}}}}
+{"Item": {"session_id": {"S": "s-2"}, "customer_id": {"N": "1003"}, "tags": {"SS": ["web"]}, "active": {"BOOL": true}, "attrs": {"M": {"device": {"S": "android"}}}}}
+{"Item": {"session_id": {"S": "s-3"}, "customer_id": {"N": "1004"}, "tags": {"SS": ["web", "mobile"]}, "active": {"BOOL": false}, "attrs": {"M": {"device": {"S": "ios"}}}}}
+{"Item": {"session_id": {"S": "s-4"}, "customer_id": {"N": "1005"}, "tags": {"SS": ["web"]}, "active": {"BOOL": true}, "attrs": {"M": {"device": {"S": "android"}}}}}

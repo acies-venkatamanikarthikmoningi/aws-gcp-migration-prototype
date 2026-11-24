@@ -1,0 +1,6 @@
+services:
+  accelerator:
+    build: { context: .., dockerfile: deployment/Dockerfile }
+    ports: ["8000:8000"]
+    environment:
+      ACCEL_LLM: "none"        # set to "vertex" + GCP_PROJECT to enable Gemini explanations (customer-approved only)

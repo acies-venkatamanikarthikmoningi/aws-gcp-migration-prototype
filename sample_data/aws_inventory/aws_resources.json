@@ -1,0 +1,41 @@
+{
+  "exportedAt": "2026-11-18T09:00:00Z",
+  "accountId": "111122223333",
+  "resources": [
+    {
+      "ResourceId": "s3-1001",
+      "Name": "customer-raw",
+      "Service": "S3",
+      "Region": "us-east-1",
+      "Tags": {
+        "application": "CustomerAnalytics",
+        "environment": "Prod"
+      },
+      "Versioning": "Enabled"
+    },
+    {
+      "ResourceId": "rds-1001",
+      "Name": "customer-db",
+      "Service": "RDS",
+      "Engine": "postgres",
+      "EngineVersion": "14.9",
+      "Region": "us-east-1",
+      "MultiAZ": true,
+      "Tags": {
+        "application": "CustomerAnalytics",
+        "environment": "Prod"
+      }
+    },
+    {
+      "ResourceId": "efs-1001",
+      "Name": "customer-shared-files",
+      "Service": "EFS",
+      "Region": "us-east-1",
+      "SizeGB": 120,
+      "Tags": {
+        "application": "CustomerAnalytics",
+        "environment": "Prod"
+      }
+    }
+  ]
+}

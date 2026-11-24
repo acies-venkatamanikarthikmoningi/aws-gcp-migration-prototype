@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Customer Analytics event resources
+Parameters:
+  Env:
+    Type: String
+    Default: Prod
+Resources:
+  CustomerAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: customer-alerts
+  CustomerEventsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: customer-events-q
+      VisibilityTimeout: 60
+  CustomerSessions:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: customer-sessions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: session_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: session_id
+          KeyType: HASH
+  CustomerArchiveBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "customer-archive-${Env}"
+      VersioningConfiguration:
+        Status: Enabled
+  CustomerIngestFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: customer-ingest-fn
+      Runtime: python3.12
+      Handler: lambda_function.lambda_handler
+      MemorySize: 512
+      Timeout: 120
+      Role: !GetAtt IngestRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref CustomerSessions
+  IngestRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+  ClickstreamStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: customer-clickstream
+      ShardCount: 4
+  LegacyCustomResource:
+    Type: Custom::LegacyProvisioner
+    Properties:
+      ServiceToken: arn:aws:lambda:us-east-1:111122223333:function:provisioner

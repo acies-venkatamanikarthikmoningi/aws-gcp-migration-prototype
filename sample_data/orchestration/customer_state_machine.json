@@ -1,0 +1,71 @@
+{
+  "Comment": "Customer pipeline",
+  "StartAt": "ExtractOrders",
+  "States": {
+    "ExtractOrders": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-1:111122223333:function:customer-ingest-fn",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Next": "CheckVolume"
+    },
+    "CheckVolume": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.processed",
+          "NumericGreaterThan": 0,
+          "Next": "RunGlue"
+        }
+      ],
+      "Default": "NothingToDo"
+    },
+    "RunGlue": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::glue:startJobRun.sync",
+      "Parameters": {
+        "JobName": "customer-etl"
+      },
+      "Next": "Wait"
+    },
+    "Wait": {
+      "Type": "Wait",
+      "Seconds": 30,
+      "Next": "FanOut"
+    },
+    "FanOut": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "Notify",
+          "States": {
+            "Notify": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "arn:aws:sns:us-east-1:111122223333:customer-alerts",
+                "Message": "done"
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "Next": "Done"
+    },
+    "NothingToDo": {
+      "Type": "Succeed"
+    },
+    "Done": {
+      "Type": "Succeed"
+    }
+  }
+}

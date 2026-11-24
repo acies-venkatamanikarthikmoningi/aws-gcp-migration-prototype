@@ -1,0 +1,2643 @@
+{
+  "version": "aws-gcp-catalogue-2026.11.1",
+  "entries": [
+    {
+      "aws_service": "EC2",
+      "category": "compute",
+      "targets": [
+        {
+          "service": "Compute Engine",
+          "fit": "primary",
+          "when": "lift-and-shift VMs"
+        },
+        {
+          "service": "GKE",
+          "fit": "alternative",
+          "when": "containerize"
+        },
+        {
+          "service": "Cloud Run",
+          "fit": "alternative",
+          "when": "stateless HTTP app"
+        }
+      ],
+      "default_strategy": "Rehost",
+      "complexity": 2,
+      "considerations": "VM image/OS, instance family, licensing, network, sole-tenancy",
+      "gap": "",
+      "migration_tools": [
+        "Migrate to Virtual Machines"
+      ],
+      "doc": "https://cloud.google.com/compute",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "EC2 Auto Scaling",
+      "category": "compute",
+      "targets": [
+        {
+          "service": "Managed Instance Groups",
+          "fit": "primary",
+          "when": "autoscaled VM fleet"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Scaling policies, health checks, launch templates -> instance templates",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/compute/docs/instance-groups",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Lightsail",
+      "category": "compute",
+      "targets": [
+        {
+          "service": "Compute Engine",
+          "fit": "primary",
+          "when": "small VMs"
+        },
+        {
+          "service": "Cloud Run",
+          "fit": "alternative",
+          "when": "simple web app"
+        }
+      ],
+      "default_strategy": "Rehost",
+      "complexity": 1,
+      "considerations": "Bundled networking/DNS",
+      "gap": "",
+      "migration_tools": [
+        "Migrate to Virtual Machines"
+      ],
+      "doc": "https://cloud.google.com/compute",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Elastic Beanstalk",
+      "category": "compute",
+      "targets": [
+        {
+          "service": "Cloud Run",
+          "fit": "primary",
+          "when": "container/web app"
+        },
+        {
+          "service": "App Engine",
+          "fit": "alternative",
+          "when": "PaaS parity"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Platform runtime, env config, worker tiers",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/run",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "App Runner",
+      "category": "compute",
+      "targets": [
+        {
+          "service": "Cloud Run",
+          "fit": "primary",
+          "when": "container service"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 1,
+      "considerations": "Concurrency, VPC connector",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/run",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Batch",
+      "category": "compute",
+      "targets": [
+        {
+          "service": "Batch",
+          "fit": "primary",
+          "when": "managed batch jobs"
+        },
+        {
+          "service": "GKE",
+          "fit": "alternative",
+          "when": "k8s jobs"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Job queues, compute envs, spot usage",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/batch",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Outposts",
+      "category": "compute",
+      "targets": [
+        {
+          "service": "Google Distributed Cloud",
+          "fit": "primary",
+          "when": "on-prem/edge"
+        }
+      ],
+      "default_strategy": "Relocate",
+      "complexity": 4,
+      "considerations": "Hardware, connectivity, sovereignty",
+      "gap": "Hardware programme, not a software port",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/distributed-cloud",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "EKS",
+      "category": "container",
+      "targets": [
+        {
+          "service": "GKE",
+          "fit": "primary",
+          "when": "Kubernetes"
+        },
+        {
+          "service": "GKE Autopilot",
+          "fit": "alternative",
+          "when": "less node ops"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "K8s version, add-ons, ingress, IRSA -> Workload Identity, CSI storage",
+      "gap": "",
+      "migration_tools": [
+        "Migrate to Containers",
+        "Velero/Backup for GKE"
+      ],
+      "doc": "https://cloud.google.com/kubernetes-engine",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "ECS",
+      "category": "container",
+      "targets": [
+        {
+          "service": "Cloud Run",
+          "fit": "primary",
+          "when": "service/job pattern"
+        },
+        {
+          "service": "GKE",
+          "fit": "alternative",
+          "when": "complex orchestration"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "Task definitions, service discovery, sidecars",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/run",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Fargate",
+      "category": "container",
+      "targets": [
+        {
+          "service": "Cloud Run",
+          "fit": "primary",
+          "when": "serverless containers"
+        },
+        {
+          "service": "GKE Autopilot",
+          "fit": "alternative",
+          "when": "k8s semantics"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Task sizing, networking",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/run",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "ECR",
+      "category": "container",
+      "targets": [
+        {
+          "service": "Artifact Registry",
+          "fit": "primary",
+          "when": "images and packages"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 1,
+      "considerations": "Image scanning, retention, IAM",
+      "gap": "",
+      "migration_tools": [
+        "crane/gcrane copy"
+      ],
+      "doc": "https://cloud.google.com/artifact-registry",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Lambda",
+      "category": "serverless",
+      "targets": [
+        {
+          "service": "Cloud Run functions",
+          "fit": "primary",
+          "when": "event function"
+        },
+        {
+          "service": "Cloud Run",
+          "fit": "alternative",
+          "when": "longer/containers"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 3,
+      "considerations": "Runtime, event source mapping, timeout (Lambda 15 min), concurrency, layers",
+      "gap": "Event payload shapes differ (S3 event vs CloudEvents)",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/functions",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Lambda@Edge",
+      "category": "serverless",
+      "targets": [
+        {
+          "service": "Cloud CDN + Cloud Run",
+          "fit": "primary",
+          "when": "origin logic"
+        },
+        {
+          "service": "Media CDN edge extensions",
+          "fit": "alternative",
+          "when": "edge code"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 4,
+      "considerations": "Viewer/origin triggers",
+      "gap": "No 1:1 edge compute; redesign edge logic",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/cdn",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "S3",
+      "category": "storage",
+      "targets": [
+        {
+          "service": "Cloud Storage",
+          "fit": "primary",
+          "when": "object storage"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Object layout, lifecycle, versioning, encryption, bucket policies -> IAM, event notifications",
+      "gap": "",
+      "migration_tools": [
+        "Storage Transfer Service",
+        "Transfer Appliance (>100 TB offline)",
+        "gcloud storage rsync"
+      ],
+      "doc": "https://cloud.google.com/storage",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "S3 Glacier",
+      "category": "storage",
+      "targets": [
+        {
+          "service": "Cloud Storage Archive class",
+          "fit": "primary",
+          "when": "cold archive"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Retrieval SLAs, restore costs on AWS side",
+      "gap": "Glacier restore needed before transfer",
+      "migration_tools": [
+        "Storage Transfer Service"
+      ],
+      "doc": "https://cloud.google.com/storage/docs/storage-classes",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "EBS",
+      "category": "storage",
+      "targets": [
+        {
+          "service": "Persistent Disk",
+          "fit": "primary",
+          "when": "general"
+        },
+        {
+          "service": "Hyperdisk",
+          "fit": "alternative",
+          "when": "high IOPS/throughput"
+        }
+      ],
+      "default_strategy": "Rehost",
+      "complexity": 2,
+      "considerations": "IOPS, throughput, snapshots",
+      "gap": "",
+      "migration_tools": [
+        "Migrate to Virtual Machines"
+      ],
+      "doc": "https://cloud.google.com/compute/docs/disks",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "EFS",
+      "category": "storage",
+      "targets": [
+        {
+          "service": "Filestore",
+          "fit": "primary",
+          "when": "NFS"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "NFS semantics, throughput tiers, capacity",
+      "gap": "",
+      "migration_tools": [
+        "Storage Transfer Service (file systems)",
+        "rsync"
+      ],
+      "doc": "https://cloud.google.com/filestore",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "FSx for NetApp ONTAP",
+      "category": "storage",
+      "targets": [
+        {
+          "service": "Google Cloud NetApp Volumes",
+          "fit": "primary",
+          "when": "ONTAP features"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "SnapMirror, protocols",
+      "gap": "",
+      "migration_tools": [
+        "SnapMirror"
+      ],
+      "doc": "https://cloud.google.com/netapp",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "FSx for Windows",
+      "category": "storage",
+      "targets": [
+        {
+          "service": "Google Cloud NetApp Volumes (SMB)",
+          "fit": "primary",
+          "when": "SMB shares"
+        },
+        {
+          "service": "Compute Engine + Windows File Server",
+          "fit": "alternative",
+          "when": "full parity"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "AD integration, DFS",
+      "gap": "",
+      "migration_tools": [
+        "Robocopy"
+      ],
+      "doc": "https://cloud.google.com/netapp",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "FSx for Lustre",
+      "category": "storage",
+      "targets": [
+        {
+          "service": "Managed Lustre",
+          "fit": "primary",
+          "when": "HPC scratch"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "Throughput, S3 linkage",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/managed-lustre",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Storage Gateway",
+      "category": "storage",
+      "targets": [
+        {
+          "service": "Cloud Storage + partner gateway",
+          "fit": "primary",
+          "when": "hybrid file"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 3,
+      "considerations": "On-prem caching",
+      "gap": "No first-party equivalent",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/storage",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Backup",
+      "category": "storage",
+      "targets": [
+        {
+          "service": "Backup and DR Service",
+          "fit": "primary",
+          "when": "centralized backup"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Policies, vaults, retention",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/backup-disaster-recovery",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Snowball",
+      "category": "storage",
+      "targets": [
+        {
+          "service": "Transfer Appliance",
+          "fit": "primary",
+          "when": "offline bulk"
+        }
+      ],
+      "default_strategy": "Retain",
+      "complexity": 1,
+      "considerations": "Used for transfer only",
+      "gap": "",
+      "migration_tools": [
+        "Transfer Appliance"
+      ],
+      "doc": "https://cloud.google.com/transfer-appliance",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "DataSync",
+      "category": "storage",
+      "targets": [
+        {
+          "service": "Storage Transfer Service",
+          "fit": "primary",
+          "when": "online transfer"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 1,
+      "considerations": "Agents, schedules",
+      "gap": "",
+      "migration_tools": [
+        "Storage Transfer Service"
+      ],
+      "doc": "https://cloud.google.com/storage-transfer-service",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Transfer Family",
+      "category": "storage",
+      "targets": [
+        {
+          "service": "Partner SFTP on Cloud Storage",
+          "fit": "primary",
+          "when": "managed SFTP"
+        },
+        {
+          "service": "Compute Engine SFTP",
+          "fit": "alternative",
+          "when": "self-managed"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 3,
+      "considerations": "Partners' SFTP, identity",
+      "gap": "No first-party managed SFTP",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/storage",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "RDS MySQL",
+      "category": "database",
+      "targets": [
+        {
+          "service": "Cloud SQL for MySQL",
+          "fit": "primary",
+          "when": "managed MySQL"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Version, extensions, HA, read replicas",
+      "gap": "",
+      "migration_tools": [
+        "Database Migration Service (CDC)"
+      ],
+      "doc": "https://cloud.google.com/sql",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "RDS MariaDB",
+      "category": "database",
+      "targets": [
+        {
+          "service": "Cloud SQL for MySQL",
+          "fit": "primary",
+          "when": "MySQL-compatible"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "MariaDB-specific features",
+      "gap": "No managed MariaDB; test compatibility",
+      "migration_tools": [
+        "Database Migration Service",
+        "mysqldump"
+      ],
+      "doc": "https://cloud.google.com/sql",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "RDS PostgreSQL",
+      "category": "database",
+      "targets": [
+        {
+          "service": "Cloud SQL for PostgreSQL",
+          "fit": "primary",
+          "when": "standard OLTP"
+        },
+        {
+          "service": "AlloyDB",
+          "fit": "alternative",
+          "when": "high perf/HTAP"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Extensions, version, HA, logical replication",
+      "gap": "",
+      "migration_tools": [
+        "Database Migration Service (CDC)",
+        "pg_dump/pg_restore"
+      ],
+      "doc": "https://cloud.google.com/sql",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "RDS SQL Server",
+      "category": "database",
+      "targets": [
+        {
+          "service": "Cloud SQL for SQL Server",
+          "fit": "primary",
+          "when": "managed"
+        },
+        {
+          "service": "Compute Engine",
+          "fit": "alternative",
+          "when": "full feature/licensing"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "Edition, SSIS/SSRS, linked servers, licensing",
+      "gap": "",
+      "migration_tools": [
+        "Database Migration Service",
+        "native backup/restore"
+      ],
+      "doc": "https://cloud.google.com/sql/sqlserver",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "RDS Oracle",
+      "category": "database",
+      "targets": [
+        {
+          "service": "Oracle Database@Google Cloud",
+          "fit": "primary",
+          "when": "keep Oracle"
+        },
+        {
+          "service": "Bare Metal Solution",
+          "fit": "alternative",
+          "when": "BYOL Oracle"
+        },
+        {
+          "service": "AlloyDB",
+          "fit": "alternative",
+          "when": "re-architect to PostgreSQL"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 5,
+      "considerations": "Licensing (BYOL), PL/SQL, RAC, partitioning",
+      "gap": "Heterogeneous move needs schema+code conversion",
+      "migration_tools": [
+        "Database Migration Service (Oracle->PostgreSQL)",
+        "Data Pump",
+        "GoldenGate"
+      ],
+      "doc": "https://cloud.google.com/oracle",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Aurora",
+      "category": "database",
+      "targets": [
+        {
+          "service": "AlloyDB",
+          "fit": "primary",
+          "when": "PostgreSQL-compatible high perf"
+        },
+        {
+          "service": "Cloud SQL",
+          "fit": "alternative",
+          "when": "standard"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "Aurora-only features (Global DB, backtrack, serverless v2)",
+      "gap": "",
+      "migration_tools": [
+        "Database Migration Service"
+      ],
+      "doc": "https://cloud.google.com/alloydb",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Aurora Serverless",
+      "category": "database",
+      "targets": [
+        {
+          "service": "AlloyDB",
+          "fit": "primary",
+          "when": "autoscaling reads"
+        },
+        {
+          "service": "Cloud SQL",
+          "fit": "alternative",
+          "when": "small/variable"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "Scale-to-zero expectations",
+      "gap": "",
+      "migration_tools": [
+        "Database Migration Service"
+      ],
+      "doc": "https://cloud.google.com/alloydb",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "DynamoDB",
+      "category": "database",
+      "targets": [
+        {
+          "service": "Firestore",
+          "fit": "primary",
+          "when": "document/key-value, serverless"
+        },
+        {
+          "service": "Bigtable",
+          "fit": "alternative",
+          "when": "very high throughput wide-column"
+        },
+        {
+          "service": "Spanner",
+          "fit": "alternative",
+          "when": "relational + global consistency"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 4,
+      "considerations": "Access patterns, GSIs, streams, TTL, transactions, item size",
+      "gap": "Data model redesign; no wire compatibility",
+      "migration_tools": [
+        "DynamoDB export to S3 -> Dataflow"
+      ],
+      "doc": "https://cloud.google.com/firestore",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "DocumentDB",
+      "category": "database",
+      "targets": [
+        {
+          "service": "Firestore with MongoDB compatibility",
+          "fit": "primary",
+          "when": "Mongo API"
+        },
+        {
+          "service": "MongoDB Atlas on GCP",
+          "fit": "alternative",
+          "when": "full Mongo"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "Mongo API version coverage",
+      "gap": "",
+      "migration_tools": [
+        "mongodump/mongorestore",
+        "Atlas Live Migrate"
+      ],
+      "doc": "https://cloud.google.com/firestore",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Neptune",
+      "category": "database",
+      "targets": [
+        {
+          "service": "Spanner Graph",
+          "fit": "primary",
+          "when": "graph on Spanner"
+        },
+        {
+          "service": "Neo4j on Marketplace",
+          "fit": "alternative",
+          "when": "Cypher parity"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 4,
+      "considerations": "Gremlin/SPARQL vs GQL",
+      "gap": "Query language change",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/spanner",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Keyspaces",
+      "category": "database",
+      "targets": [
+        {
+          "service": "Bigtable (Cassandra-compatible tooling)",
+          "fit": "primary",
+          "when": "wide-column"
+        },
+        {
+          "service": "Astra/Cassandra on GKE",
+          "fit": "alternative",
+          "when": "CQL parity"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 4,
+      "considerations": "CQL features",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/bigtable",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Timestream",
+      "category": "database",
+      "targets": [
+        {
+          "service": "Bigtable",
+          "fit": "primary",
+          "when": "high-rate time series"
+        },
+        {
+          "service": "BigQuery",
+          "fit": "alternative",
+          "when": "analytics"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 3,
+      "considerations": "Retention tiers, query patterns",
+      "gap": "",
+      "migration_tools": [
+        "Dataflow"
+      ],
+      "doc": "https://cloud.google.com/bigtable",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "QLDB",
+      "category": "database",
+      "targets": [
+        {
+          "service": "Spanner + Cloud Audit Logs",
+          "fit": "primary",
+          "when": "verifiable history pattern"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 4,
+      "considerations": "QLDB is end-of-support; redesign ledger semantics",
+      "gap": "Service end-of-support on AWS \u2013 migrate pattern, not product",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/spanner",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "ElastiCache",
+      "category": "database",
+      "targets": [
+        {
+          "service": "Memorystore for Redis / Valkey",
+          "fit": "primary",
+          "when": "Redis-compatible"
+        },
+        {
+          "service": "Memorystore for Memcached",
+          "fit": "alternative",
+          "when": "Memcached"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Engine/version, cluster mode, persistence",
+      "gap": "",
+      "migration_tools": [
+        "RIOT / dump-restore"
+      ],
+      "doc": "https://cloud.google.com/memorystore",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "MemoryDB",
+      "category": "database",
+      "targets": [
+        {
+          "service": "Memorystore for Redis Cluster / Valkey",
+          "fit": "primary",
+          "when": "durable Redis"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "Durability expectations",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/memorystore",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "OpenSearch",
+      "category": "analytics",
+      "targets": [
+        {
+          "service": "Elastic Cloud on GCP (Marketplace)",
+          "fit": "primary",
+          "when": "Elasticsearch parity"
+        },
+        {
+          "service": "Vertex AI Search",
+          "fit": "alternative",
+          "when": "managed search"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 3,
+      "considerations": "Plugins, ISM, dashboards",
+      "gap": "No first-party OpenSearch",
+      "migration_tools": [
+        "snapshot/restore to GCS"
+      ],
+      "doc": "https://cloud.google.com/vertex-ai-search-and-conversation",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Redshift",
+      "category": "analytics",
+      "targets": [
+        {
+          "service": "BigQuery",
+          "fit": "primary",
+          "when": "serverless warehouse"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "SQL dialect, DIST/SORT keys -> partition/cluster, stored procedures, WLM -> reservations",
+      "gap": "",
+      "migration_tools": [
+        "BigQuery Data Transfer Service (Redshift)",
+        "BigQuery Migration Service (SQL translation)"
+      ],
+      "doc": "https://cloud.google.com/bigquery/docs/migration/redshift-overview",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Redshift Serverless",
+      "category": "analytics",
+      "targets": [
+        {
+          "service": "BigQuery",
+          "fit": "primary",
+          "when": "on-demand/editions"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "RPU sizing vs slots",
+      "gap": "",
+      "migration_tools": [
+        "BigQuery Data Transfer Service"
+      ],
+      "doc": "https://cloud.google.com/bigquery",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Athena",
+      "category": "analytics",
+      "targets": [
+        {
+          "service": "BigQuery (BigLake external tables)",
+          "fit": "primary",
+          "when": "query lake in place"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Catalog, formats, partition projection",
+      "gap": "",
+      "migration_tools": [
+        "Storage Transfer Service"
+      ],
+      "doc": "https://cloud.google.com/bigquery",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Glue",
+      "category": "etl",
+      "targets": [
+        {
+          "service": "Dataproc Serverless",
+          "fit": "primary",
+          "when": "Spark jobs"
+        },
+        {
+          "service": "Dataflow",
+          "fit": "alternative",
+          "when": "Beam/streaming"
+        },
+        {
+          "service": "BigQuery SQL / Dataform",
+          "fit": "alternative",
+          "when": "SQL-only transforms"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 3,
+      "considerations": "DynamicFrame APIs, job bookmarks, catalog",
+      "gap": "Glue-specific APIs must be rewritten",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/dataproc-serverless",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Glue Data Catalog",
+      "category": "governance",
+      "targets": [
+        {
+          "service": "BigLake Metastore / Dataplex Universal Catalog",
+          "fit": "primary",
+          "when": "metadata & governance"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "Hive metastore compatibility",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/dataplex",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Glue DataBrew",
+      "category": "etl",
+      "targets": [
+        {
+          "service": "Dataform / BigQuery data preparation",
+          "fit": "primary",
+          "when": "SQL prep"
+        },
+        {
+          "service": "Dataproc",
+          "fit": "alternative",
+          "when": "code"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 3,
+      "considerations": "No-code recipes",
+      "gap": "Recipe conversion is manual",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/bigquery",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Lake Formation",
+      "category": "governance",
+      "targets": [
+        {
+          "service": "Dataplex + BigLake",
+          "fit": "primary",
+          "when": "lake governance"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 3,
+      "considerations": "Row/column permissions",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/dataplex",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "EMR",
+      "category": "analytics",
+      "targets": [
+        {
+          "service": "Dataproc",
+          "fit": "primary",
+          "when": "Hadoop/Spark clusters"
+        },
+        {
+          "service": "Dataproc Serverless",
+          "fit": "alternative",
+          "when": "ephemeral Spark"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "Hadoop/Spark versions, bootstrap actions, EMRFS -> GCS connector",
+      "gap": "",
+      "migration_tools": [
+        "DistCp",
+        "Storage Transfer Service"
+      ],
+      "doc": "https://cloud.google.com/dataproc",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "EMR Serverless",
+      "category": "analytics",
+      "targets": [
+        {
+          "service": "Dataproc Serverless",
+          "fit": "primary",
+          "when": "serverless Spark"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Spark version",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/dataproc-serverless",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "QuickSight",
+      "category": "bi",
+      "targets": [
+        {
+          "service": "Looker",
+          "fit": "primary",
+          "when": "governed semantic layer"
+        },
+        {
+          "service": "Looker Studio",
+          "fit": "alternative",
+          "when": "self-service dashboards"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 3,
+      "considerations": "SPICE datasets, row-level security",
+      "gap": "Dashboards rebuilt",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/looker",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Data Exchange",
+      "category": "analytics",
+      "targets": [
+        {
+          "service": "Analytics Hub",
+          "fit": "primary",
+          "when": "data sharing"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Subscriptions",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/analytics-hub",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Kinesis",
+      "category": "streaming",
+      "targets": [
+        {
+          "service": "Pub/Sub",
+          "fit": "primary",
+          "when": "event ingestion"
+        },
+        {
+          "service": "Managed Service for Apache Kafka",
+          "fit": "alternative",
+          "when": "log semantics"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 3,
+      "considerations": "Shards vs throughput, ordering keys, retention, replay",
+      "gap": "",
+      "migration_tools": [
+        "Dual-publish bridge",
+        "Dataflow"
+      ],
+      "doc": "https://cloud.google.com/pubsub",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Kinesis Firehose",
+      "category": "streaming",
+      "targets": [
+        {
+          "service": "Pub/Sub BigQuery/Cloud Storage subscriptions",
+          "fit": "primary",
+          "when": "delivery"
+        },
+        {
+          "service": "Dataflow",
+          "fit": "alternative",
+          "when": "transform"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 2,
+      "considerations": "Buffering, transforms",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/pubsub",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Kinesis Video Streams",
+      "category": "streaming",
+      "targets": [
+        {
+          "service": "Vertex AI Vision",
+          "fit": "primary",
+          "when": "video analytics"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 4,
+      "considerations": "Ingestion SDKs",
+      "gap": "No direct equivalent",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/vertex-ai",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "MSK",
+      "category": "streaming",
+      "targets": [
+        {
+          "service": "Managed Service for Apache Kafka",
+          "fit": "primary",
+          "when": "Kafka API"
+        },
+        {
+          "service": "Pub/Sub",
+          "fit": "alternative",
+          "when": "re-architect"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Kafka version, consumer groups, connectors, ACLs",
+      "gap": "",
+      "migration_tools": [
+        "MirrorMaker 2",
+        "Cluster Linking (Confluent)"
+      ],
+      "doc": "https://cloud.google.com/managed-service-for-apache-kafka",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "SQS",
+      "category": "integration",
+      "targets": [
+        {
+          "service": "Pub/Sub",
+          "fit": "primary",
+          "when": "pub/sub queueing"
+        },
+        {
+          "service": "Cloud Tasks",
+          "fit": "alternative",
+          "when": "task dispatch with rate control"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 2,
+      "considerations": "FIFO, visibility timeout -> ack deadline, DLQ",
+      "gap": "",
+      "migration_tools": [
+        "Drain-and-switch"
+      ],
+      "doc": "https://cloud.google.com/pubsub",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "SNS",
+      "category": "integration",
+      "targets": [
+        {
+          "service": "Pub/Sub",
+          "fit": "primary",
+          "when": "fan-out"
+        },
+        {
+          "service": "Firebase Cloud Messaging",
+          "fit": "alternative",
+          "when": "mobile push"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 2,
+      "considerations": "Filter policies, SMS/email endpoints",
+      "gap": "SMS/email delivery needs partner",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/pubsub",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "EventBridge",
+      "category": "integration",
+      "targets": [
+        {
+          "service": "Eventarc",
+          "fit": "primary",
+          "when": "event routing"
+        },
+        {
+          "service": "Pub/Sub",
+          "fit": "alternative",
+          "when": "bus"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 3,
+      "considerations": "Rules, schema registry, partner sources",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/eventarc",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "EventBridge Scheduler",
+      "category": "integration",
+      "targets": [
+        {
+          "service": "Cloud Scheduler",
+          "fit": "primary",
+          "when": "cron"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 1,
+      "considerations": "Time zones, targets",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/scheduler",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Step Functions",
+      "category": "orchestration",
+      "targets": [
+        {
+          "service": "Workflows",
+          "fit": "primary",
+          "when": "serverless orchestration"
+        },
+        {
+          "service": "Cloud Composer",
+          "fit": "alternative",
+          "when": "data pipelines"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 3,
+      "considerations": "State machine semantics, retries, service integrations, Map state",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/workflows",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "MWAA",
+      "category": "orchestration",
+      "targets": [
+        {
+          "service": "Cloud Composer",
+          "fit": "primary",
+          "when": "managed Airflow"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Airflow version, providers/operators, connections",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/composer",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "AppFlow",
+      "category": "integration",
+      "targets": [
+        {
+          "service": "Application Integration / Integration Connectors",
+          "fit": "primary",
+          "when": "SaaS integration"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 3,
+      "considerations": "Connectors",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/application-integration",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "MQ",
+      "category": "integration",
+      "targets": [
+        {
+          "service": "Pub/Sub",
+          "fit": "primary",
+          "when": "re-architect"
+        },
+        {
+          "service": "RabbitMQ/ActiveMQ on GKE",
+          "fit": "alternative",
+          "when": "protocol parity"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "AMQP/JMS protocols",
+      "gap": "No managed broker equivalent",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/pubsub",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "AppSync",
+      "category": "integration",
+      "targets": [
+        {
+          "service": "Apigee + Cloud Run GraphQL",
+          "fit": "primary",
+          "when": "GraphQL API"
+        },
+        {
+          "service": "Firebase Data Connect",
+          "fit": "alternative",
+          "when": "app backends"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 4,
+      "considerations": "Resolvers, subscriptions",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/apigee",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "API Gateway",
+      "category": "networking",
+      "targets": [
+        {
+          "service": "API Gateway",
+          "fit": "primary",
+          "when": "simple APIs"
+        },
+        {
+          "service": "Apigee",
+          "fit": "alternative",
+          "when": "full API management"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Authorizers, usage plans, stages",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/api-gateway",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "VPC",
+      "category": "networking",
+      "targets": [
+        {
+          "service": "VPC network",
+          "fit": "primary",
+          "when": "global VPC"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "CIDRs, regional vs global VPC, firewall rules vs SGs/NACLs, peering",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/vpc",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "NAT Gateway",
+      "category": "networking",
+      "targets": [
+        {
+          "service": "Cloud NAT",
+          "fit": "primary",
+          "when": "egress NAT"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 1,
+      "considerations": "IP allocation",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/nat",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Transit Gateway",
+      "category": "networking",
+      "targets": [
+        {
+          "service": "Network Connectivity Center",
+          "fit": "primary",
+          "when": "hub-and-spoke"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "Route tables, attachments",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/network-connectivity-center",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "PrivateLink",
+      "category": "networking",
+      "targets": [
+        {
+          "service": "Private Service Connect",
+          "fit": "primary",
+          "when": "private endpoints"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Endpoint services",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/vpc/docs/private-service-connect",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Direct Connect",
+      "category": "networking",
+      "targets": [
+        {
+          "service": "Cloud Interconnect",
+          "fit": "primary",
+          "when": "dedicated/partner"
+        },
+        {
+          "service": "Cross-Cloud Interconnect",
+          "fit": "alternative",
+          "when": "AWS<->GCP during migration"
+        }
+      ],
+      "default_strategy": "Relocate",
+      "complexity": 3,
+      "considerations": "Bandwidth, redundancy, lead time",
+      "gap": "Physical provisioning lead time (weeks)",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/network-connectivity/docs/interconnect",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Site-to-Site VPN",
+      "category": "networking",
+      "targets": [
+        {
+          "service": "Cloud VPN (HA VPN)",
+          "fit": "primary",
+          "when": "IPsec"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 1,
+      "considerations": "BGP, tunnels",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/network-connectivity/docs/vpn",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "ELB",
+      "category": "networking",
+      "targets": [
+        {
+          "service": "Cloud Load Balancing",
+          "fit": "primary",
+          "when": "ALB->Application LB, NLB->Network LB"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Listener rules, TLS, stickiness",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/load-balancing",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Global Accelerator",
+      "category": "networking",
+      "targets": [
+        {
+          "service": "Global external Application/Network LB",
+          "fit": "primary",
+          "when": "anycast"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Static anycast IPs",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/load-balancing",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "CloudFront",
+      "category": "networking",
+      "targets": [
+        {
+          "service": "Cloud CDN",
+          "fit": "primary",
+          "when": "web CDN"
+        },
+        {
+          "service": "Media CDN",
+          "fit": "alternative",
+          "when": "large media"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Origins, cache behaviours, WAF, signed URLs",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/cdn",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Route 53",
+      "category": "networking",
+      "targets": [
+        {
+          "service": "Cloud DNS",
+          "fit": "primary",
+          "when": "DNS"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 1,
+      "considerations": "Routing policies, health checks",
+      "gap": "Latency/geo routing uses Cloud DNS routing policies \u2013 verify parity",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/dns",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "IAM",
+      "category": "security",
+      "targets": [
+        {
+          "service": "Cloud IAM",
+          "fit": "primary",
+          "when": "roles/service accounts"
+        },
+        {
+          "service": "Workload Identity Federation",
+          "fit": "alternative",
+          "when": "AWS/CI identities"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 4,
+      "considerations": "Policy language, role trust, least privilege, permission boundaries",
+      "gap": "Policy model differs; no auto 1:1",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/iam",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Organizations",
+      "category": "security",
+      "targets": [
+        {
+          "service": "Resource Manager (org/folders/projects) + Org Policy",
+          "fit": "primary",
+          "when": "hierarchy"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 3,
+      "considerations": "SCPs -> org policies",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/resource-manager",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Control Tower",
+      "category": "security",
+      "targets": [
+        {
+          "service": "Landing zone (Cloud Foundation Fabric / Setup checklist)",
+          "fit": "primary",
+          "when": "baseline"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 3,
+      "considerations": "Guardrails",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/architecture/landing-zones",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "IAM Identity Center",
+      "category": "security",
+      "targets": [
+        {
+          "service": "Cloud Identity / Workforce Identity Federation",
+          "fit": "primary",
+          "when": "workforce SSO"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 3,
+      "considerations": "IdP integration",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/iam/docs/workforce-identity-federation",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Cognito",
+      "category": "security",
+      "targets": [
+        {
+          "service": "Identity Platform",
+          "fit": "primary",
+          "when": "customer identity"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 4,
+      "considerations": "User pool export (password hashes not exportable)",
+      "gap": "Users may need password reset or lazy migration",
+      "migration_tools": [
+        "Lazy migration via auth trigger"
+      ],
+      "doc": "https://cloud.google.com/identity-platform",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "KMS",
+      "category": "security",
+      "targets": [
+        {
+          "service": "Cloud KMS",
+          "fit": "primary",
+          "when": "keys"
+        },
+        {
+          "service": "Cloud EKM",
+          "fit": "alternative",
+          "when": "external keys"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "Key material not exportable; re-encrypt data",
+      "gap": "Data must be re-encrypted with new keys",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/kms",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "CloudHSM",
+      "category": "security",
+      "targets": [
+        {
+          "service": "Cloud HSM",
+          "fit": "primary",
+          "when": "FIPS 140-2 L3"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "Key ceremony",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/kms/docs/hsm",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Secrets Manager",
+      "category": "security",
+      "targets": [
+        {
+          "service": "Secret Manager",
+          "fit": "primary",
+          "when": "secrets"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 1,
+      "considerations": "Rotation lambdas, versions",
+      "gap": "",
+      "migration_tools": [
+        "Scripted copy (never via logs)"
+      ],
+      "doc": "https://cloud.google.com/secret-manager",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Systems Manager",
+      "category": "security",
+      "targets": [
+        {
+          "service": "VM Manager",
+          "fit": "primary",
+          "when": "patch/config"
+        },
+        {
+          "service": "Parameter Manager",
+          "fit": "alternative",
+          "when": "parameters"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Run Command, Parameter Store",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/compute/docs/vm-manager",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "ACM",
+      "category": "security",
+      "targets": [
+        {
+          "service": "Certificate Manager",
+          "fit": "primary",
+          "when": "TLS certs"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 1,
+      "considerations": "Private CA -> Certificate Authority Service",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/certificate-manager",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "WAF",
+      "category": "security",
+      "targets": [
+        {
+          "service": "Cloud Armor",
+          "fit": "primary",
+          "when": "WAF/DDoS"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Managed rule groups -> preconfigured rules",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/armor",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Shield",
+      "category": "security",
+      "targets": [
+        {
+          "service": "Cloud Armor (Enterprise)",
+          "fit": "primary",
+          "when": "DDoS"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Response team",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/armor",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "GuardDuty",
+      "category": "security",
+      "targets": [
+        {
+          "service": "Security Command Center (threat detection)",
+          "fit": "primary",
+          "when": "threats"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 2,
+      "considerations": "Findings integration",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/security-command-center",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Security Hub",
+      "category": "security",
+      "targets": [
+        {
+          "service": "Security Command Center",
+          "fit": "primary",
+          "when": "posture"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 2,
+      "considerations": "Standards",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/security-command-center",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Inspector",
+      "category": "security",
+      "targets": [
+        {
+          "service": "Security Command Center / Artifact Analysis",
+          "fit": "primary",
+          "when": "vuln scanning"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 2,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/security-command-center",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Macie",
+      "category": "security",
+      "targets": [
+        {
+          "service": "Sensitive Data Protection",
+          "fit": "primary",
+          "when": "PII discovery"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 2,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/sensitive-data-protection",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Config",
+      "category": "governance",
+      "targets": [
+        {
+          "service": "Cloud Asset Inventory + Org Policy",
+          "fit": "primary",
+          "when": "config history/compliance"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 2,
+      "considerations": "Rules",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/asset-inventory",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "CloudWatch",
+      "category": "observability",
+      "targets": [
+        {
+          "service": "Cloud Monitoring + Cloud Logging",
+          "fit": "primary",
+          "when": "metrics/logs/alerts"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Metrics, log retention, dashboards, alarms",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/monitoring",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "CloudTrail",
+      "category": "observability",
+      "targets": [
+        {
+          "service": "Cloud Audit Logs",
+          "fit": "primary",
+          "when": "audit"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 1,
+      "considerations": "Retention/export to BigQuery",
+      "gap": "Historic CloudTrail stays in AWS or is archived",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/logging/docs/audit",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "X-Ray",
+      "category": "observability",
+      "targets": [
+        {
+          "service": "Cloud Trace",
+          "fit": "primary",
+          "when": "tracing"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 2,
+      "considerations": "Prefer OpenTelemetry",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/trace",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Managed Prometheus",
+      "category": "observability",
+      "targets": [
+        {
+          "service": "Managed Service for Prometheus",
+          "fit": "primary",
+          "when": "PromQL"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 1,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/stackdriver/docs/managed-prometheus",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Managed Grafana",
+      "category": "observability",
+      "targets": [
+        {
+          "service": "Grafana on GKE / Cloud Monitoring dashboards",
+          "fit": "primary",
+          "when": "dashboards"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/monitoring",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Trusted Advisor",
+      "category": "governance",
+      "targets": [
+        {
+          "service": "Active Assist Recommender",
+          "fit": "primary",
+          "when": "recommendations"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 1,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/recommender",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Cost Explorer",
+      "category": "governance",
+      "targets": [
+        {
+          "service": "Cloud Billing reports + BigQuery export",
+          "fit": "primary",
+          "when": "FinOps"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 1,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/billing",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "CloudFormation",
+      "category": "devops",
+      "targets": [
+        {
+          "service": "Terraform (google provider)",
+          "fit": "primary",
+          "when": "IaC standard"
+        },
+        {
+          "service": "Infrastructure Manager",
+          "fit": "alternative",
+          "when": "managed Terraform"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 3,
+      "considerations": "Intrinsics, custom resources, nested stacks",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/infrastructure-manager",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "CDK",
+      "category": "devops",
+      "targets": [
+        {
+          "service": "CDK for Terraform / Pulumi",
+          "fit": "primary",
+          "when": "code-first IaC"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 3,
+      "considerations": "Constructs",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/infrastructure-manager",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "CodePipeline",
+      "category": "devops",
+      "targets": [
+        {
+          "service": "Cloud Build + Cloud Deploy",
+          "fit": "primary",
+          "when": "CI/CD"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 2,
+      "considerations": "Approvals, stages",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/deploy",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "CodeBuild",
+      "category": "devops",
+      "targets": [
+        {
+          "service": "Cloud Build",
+          "fit": "primary",
+          "when": "builds"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 1,
+      "considerations": "buildspec -> cloudbuild.yaml",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/build",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "CodeDeploy",
+      "category": "devops",
+      "targets": [
+        {
+          "service": "Cloud Deploy",
+          "fit": "primary",
+          "when": "progressive delivery"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 2,
+      "considerations": "Blue/green, canary",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/deploy",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "CodeCommit",
+      "category": "devops",
+      "targets": [
+        {
+          "service": "Secure Source Manager",
+          "fit": "primary",
+          "when": "managed git"
+        },
+        {
+          "service": "GitHub/GitLab",
+          "fit": "alternative",
+          "when": "SaaS git"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 1,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [
+        "git mirror"
+      ],
+      "doc": "https://cloud.google.com/secure-source-manager",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Cloud9",
+      "category": "devops",
+      "targets": [
+        {
+          "service": "Cloud Workstations",
+          "fit": "primary",
+          "when": "cloud IDE"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 1,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/workstations",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Amplify",
+      "category": "devops",
+      "targets": [
+        {
+          "service": "Firebase App Hosting / Hosting",
+          "fit": "primary",
+          "when": "web/mobile backends"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 3,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/firebase",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "SageMaker",
+      "category": "ai_ml",
+      "targets": [
+        {
+          "service": "Vertex AI",
+          "fit": "primary",
+          "when": "training/endpoints/pipelines"
+        }
+      ],
+      "default_strategy": "Replatform",
+      "complexity": 3,
+      "considerations": "Containers, endpoints, feature store, pipelines, model registry",
+      "gap": "",
+      "migration_tools": [
+        "Model artifacts copy via Storage Transfer"
+      ],
+      "doc": "https://cloud.google.com/vertex-ai",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Bedrock",
+      "category": "ai_ml",
+      "targets": [
+        {
+          "service": "Vertex AI (Gemini, Model Garden)",
+          "fit": "primary",
+          "when": "foundation models"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 3,
+      "considerations": "Model choice, guardrails, agents, KBs",
+      "gap": "Prompts/evals must be re-validated per model",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/vertex-ai",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Comprehend",
+      "category": "ai_ml",
+      "targets": [
+        {
+          "service": "Natural Language API",
+          "fit": "primary",
+          "when": "NLP"
+        },
+        {
+          "service": "Gemini on Vertex AI",
+          "fit": "alternative",
+          "when": "LLM"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 2,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/natural-language",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Rekognition",
+      "category": "ai_ml",
+      "targets": [
+        {
+          "service": "Vision API",
+          "fit": "primary",
+          "when": "images"
+        },
+        {
+          "service": "Video Intelligence API",
+          "fit": "alternative",
+          "when": "video"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 2,
+      "considerations": "",
+      "gap": "Face features differ by policy",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/vision",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Textract",
+      "category": "ai_ml",
+      "targets": [
+        {
+          "service": "Document AI",
+          "fit": "primary",
+          "when": "documents"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 2,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/document-ai",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Translate",
+      "category": "ai_ml",
+      "targets": [
+        {
+          "service": "Cloud Translation",
+          "fit": "primary",
+          "when": "MT"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 1,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/translate",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Polly",
+      "category": "ai_ml",
+      "targets": [
+        {
+          "service": "Text-to-Speech",
+          "fit": "primary",
+          "when": "TTS"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 1,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/text-to-speech",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Transcribe",
+      "category": "ai_ml",
+      "targets": [
+        {
+          "service": "Speech-to-Text",
+          "fit": "primary",
+          "when": "ASR"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 1,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/speech-to-text",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Lex",
+      "category": "ai_ml",
+      "targets": [
+        {
+          "service": "Dialogflow CX / Conversational Agents",
+          "fit": "primary",
+          "when": "bots"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 3,
+      "considerations": "Intents/slots",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/dialogflow",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Kendra",
+      "category": "ai_ml",
+      "targets": [
+        {
+          "service": "Vertex AI Search",
+          "fit": "primary",
+          "when": "enterprise search"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 2,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/enterprise-search",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Personalize",
+      "category": "ai_ml",
+      "targets": [
+        {
+          "service": "Vertex AI Search for commerce",
+          "fit": "primary",
+          "when": "recommendations"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 3,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/retail",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Forecast",
+      "category": "ai_ml",
+      "targets": [
+        {
+          "service": "BigQuery ML / Vertex AI forecasting",
+          "fit": "primary",
+          "when": "forecasting"
+        }
+      ],
+      "default_strategy": "Refactor",
+      "complexity": 2,
+      "considerations": "",
+      "gap": "Amazon Forecast closed to new customers",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/bigquery/docs/bqml-introduction",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "IoT Core",
+      "category": "iot",
+      "targets": [
+        {
+          "service": "Partner MQTT broker (Marketplace) + Pub/Sub",
+          "fit": "primary",
+          "when": "device connectivity"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 5,
+      "considerations": "Device registry, certificates, MQTT topics, shadows",
+      "gap": "Google Cloud IoT Core retired (Aug 2023) \u2013 partner broker required",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/solutions/iot",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "SES",
+      "category": "integration",
+      "targets": [
+        {
+          "service": "Partner email API (e.g. SendGrid via Marketplace)",
+          "fit": "primary",
+          "when": "transactional email"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 2,
+      "considerations": "Sender reputation, DKIM",
+      "gap": "No first-party email sending service",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/marketplace",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Pinpoint",
+      "category": "integration",
+      "targets": [
+        {
+          "service": "Firebase Cloud Messaging + partner",
+          "fit": "primary",
+          "when": "engagement"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 3,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/firebase",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Connect",
+      "category": "integration",
+      "targets": [
+        {
+          "service": "Contact Center AI Platform",
+          "fit": "primary",
+          "when": "contact centre"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 4,
+      "considerations": "",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/solutions/contact-center",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "WorkSpaces",
+      "category": "enduser",
+      "targets": [
+        {
+          "service": "Partner VDI (e.g. Citrix/VMware on GCP)",
+          "fit": "primary",
+          "when": "VDI"
+        }
+      ],
+      "default_strategy": "Repurchase",
+      "complexity": 3,
+      "considerations": "",
+      "gap": "No first-party VDI",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/solutions",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Simple Workflow (SWF)",
+      "category": "orchestration",
+      "targets": [
+        {
+          "service": "Workflows",
+          "fit": "primary",
+          "when": "orchestration"
+        }
+      ],
+      "default_strategy": "Retire",
+      "complexity": 3,
+      "considerations": "Legacy service",
+      "gap": "Consider retiring/replacing",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/workflows",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    },
+    {
+      "aws_service": "Database Migration Service (AWS DMS)",
+      "category": "migration",
+      "targets": [
+        {
+          "service": "Database Migration Service / Datastream",
+          "fit": "primary",
+          "when": "replication"
+        }
+      ],
+      "default_strategy": "Retire",
+      "complexity": 1,
+      "considerations": "Tool, not a workload",
+      "gap": "",
+      "migration_tools": [],
+      "doc": "https://cloud.google.com/database-migration",
+      "version": "aws-gcp-catalogue-2026.11.1"
+    }
+  ],
+  "data_transfer_tools": {
+    "Storage Transfer Service": "Managed online S3->GCS transfer; agentless for S3; incremental sync and scheduling.",
+    "Transfer Appliance": "Offline bulk for very large datasets or constrained bandwidth.",
+    "BigQuery Data Transfer Service (Redshift)": "Schema + data migration from Redshift via S3 unload to BigQuery.",
+    "BigQuery Migration Service (SQL translation)": "Batch/interactive Redshift SQL -> GoogleSQL translation.",
+    "Database Migration Service (CDC)": "Homogeneous MySQL/PostgreSQL/SQL Server -> Cloud SQL/AlloyDB with continuous replication.",
+    "Database Migration Service (Oracle->PostgreSQL)": "Heterogeneous Oracle -> AlloyDB/Cloud SQL PG with conversion workspace.",
+    "Datastream": "Serverless CDC from MySQL/PostgreSQL/Oracle/SQL Server into BigQuery/GCS.",
+    "MirrorMaker 2": "Kafka topic replication MSK -> Managed Kafka with offset translation.",
+    "Dataflow": "Custom/large-scale transforms, DynamoDB export conversion, dual-run bridges.",
+    "Migrate to Virtual Machines": "VM replication and cutover for EC2 -> Compute Engine.",
+    "Migrate to Containers": "VM -> container artefact modernization."
+  }
+}

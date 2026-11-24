@@ -1,0 +1,6 @@
+application,owner_name,owner_email,owner_type
+CustomerAnalytics,Data Platform Lead,lead@example.com,TECHNICAL
+CustomerAnalytics,Analytics Manager,analytics@example.com,BUSINESS
+CustomerPortal,Application Lead,app@example.com,TECHNICAL
+SalesReporting,BI Owner,bi@example.com,BUSINESS
+LegacyBilling,Billing Systems Lead,billing@example.com,TECHNICAL

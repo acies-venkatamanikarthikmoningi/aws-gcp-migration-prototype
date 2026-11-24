@@ -1,0 +1,4 @@
+node_id,display_name,application,consumer_type
+powerbi-sales,Power BI Sales Dashboard,SalesReporting,BI
+customer-portal,Customer Portal,CustomerPortal,APPLICATION
+finance-extract,Finance Nightly Extract,FinanceOps,BATCH

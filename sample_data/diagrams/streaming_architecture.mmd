@@ -1,0 +1,5 @@
+flowchart LR
+  kin[customer-clickstream Kinesis] --> msk[customer-kafka MSK]
+  msk --> emr[customer-ml-features EMR]
+  emr --> sgm[customer-churn-model SageMaker]
+  iot[hvac-telemetry IoT Core] --> kin

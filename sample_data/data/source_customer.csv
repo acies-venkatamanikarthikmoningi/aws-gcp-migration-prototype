@@ -1,0 +1,4 @@
+customer_id,customer_name,country,revenue
+1001,Customer A,US,5000
+1002,Customer B,UK,6000
+1003,Customer C,IN,7000

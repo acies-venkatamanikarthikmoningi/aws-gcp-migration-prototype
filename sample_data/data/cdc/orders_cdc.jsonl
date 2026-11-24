@@ -1,0 +1,5 @@
+{"lsn": 9001, "op": "I", "commit_ts": "2026-11-02T08:00:00", "after": {"order_id": 505887, "customer_id": 1201, "order_date": "2026-11-02", "status": "NEW", "amount": "75.00", "currency": "USD", "updated_at": "2026-11-02T08:00:00"}}
+{"lsn": 9002, "op": "U", "commit_ts": "2026-11-02T08:05:00", "after": {"order_id": 505887, "customer_id": 1201, "order_date": "2026-11-02", "status": "PAID", "amount": "75.00", "currency": "USD", "updated_at": "2026-11-02T08:05:00"}}
+{"lsn": 9003, "op": "I", "commit_ts": "2026-11-02T08:10:00", "after": {"order_id": 505888, "customer_id": 1202, "order_date": "2026-11-02", "status": "NEW", "amount": "15.50", "currency": "USD", "updated_at": "2026-11-02T08:10:00"}}
+{"lsn": 9004, "op": "D", "commit_ts": "2026-11-02T08:20:00", "after": {"order_id": 500011, "customer_id": null, "order_date": null, "status": null, "amount": null, "currency": null, "updated_at": "2026-11-02T08:20:00"}}
+{"lsn": 9005, "op": "U", "commit_ts": "2026-11-02T08:30:00", "after": {"order_id": 500012, "customer_id": 1012, "order_date": null, "status": "DELIVERED", "amount": null, "currency": null, "updated_at": "2026-11-02T08:30:00"}}

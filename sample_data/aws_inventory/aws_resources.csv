@@ -1,0 +1,36 @@
+resource_id,resource_name,service,engine,engine_version,instance_type,region,application,environment,criticality,size_gb,monthly_cost_usd,data_classification,last_accessed_days,tags
+i-1001,customer-api,EC2,,,m5.large,us-east-1,CustomerAnalytics,Prod,High,100,140,Internal,0,team=platform
+s3-1001,customer-raw,S3,,,,us-east-1,CustomerAnalytics,Prod,High,2048,47,Confidential,0,pii=true
+rds-1001,customer-db,RDS,postgres,14.9,db.r6g.large,us-east-1,CustomerAnalytics,Prod,High,500,420,Confidential,0,pii=true
+glue-1001,customer-etl,Glue,spark,4.0,G.1X,us-east-1,CustomerAnalytics,Prod,High,0,260,Internal,0,
+rs-1001,customer-warehouse,Redshift,redshift,1.0,ra3.xlplus,us-east-1,CustomerAnalytics,Prod,High,3500,2900,Confidential,0,
+lambda-1001,customer-ingest-fn,Lambda,python,3.11,,us-east-1,CustomerAnalytics,Prod,High,0,18,Internal,0,
+ddb-1001,customer-sessions,DynamoDB,,,,us-east-1,CustomerAnalytics,Prod,Medium,40,85,Internal,0,pattern=key-value
+kin-1001,customer-clickstream,Kinesis,,,,us-east-1,CustomerAnalytics,Prod,High,0,160,Internal,0,shards=4
+sqs-1001,customer-events-q,SQS,,,,us-east-1,CustomerAnalytics,Prod,Medium,0,6,Internal,0,fifo=false
+sns-1001,customer-alerts,SNS,,,,us-east-1,CustomerAnalytics,Prod,Medium,0,3,Internal,0,
+eks-1001,customer-portal-cluster,EKS,kubernetes,1.29,m5.xlarge,us-east-1,CustomerPortal,Prod,High,0,1100,Internal,0,nodes=6
+ecr-1001,customer-portal-images,ECR,,,,us-east-1,CustomerPortal,Prod,Medium,30,3,Internal,0,
+apigw-1001,customer-public-api,API Gateway,REST,,,us-east-1,CustomerPortal,Prod,High,0,55,Public,0,
+cf-1001,customer-portal-cdn,CloudFront,,,,global,CustomerPortal,Prod,High,0,90,Public,0,lambda_edge=true
+r53-1001,customer.example.com,Route 53,,,,global,CustomerPortal,Prod,High,0,2,Public,0,routing=latency
+sm-1001,customer-db-credentials,Secrets Manager,,,,us-east-1,CustomerAnalytics,Prod,High,0,1,Restricted,0,rotation=30d
+cw-1001,customer-observability,CloudWatch,,,,us-east-1,CustomerAnalytics,Prod,Medium,0,75,Internal,0,
+sfn-1001,customer-pipeline-sm,Step Functions,,,,us-east-1,CustomerAnalytics,Prod,High,0,12,Internal,0,
+mwaa-1001,customer-airflow,MWAA,airflow,2.8.1,mw1.small,us-east-1,CustomerAnalytics,Prod,High,0,380,Internal,0,
+redis-1001,customer-cache,ElastiCache,redis,7.0,cache.r6g.large,us-east-1,CustomerPortal,Prod,Medium,13,210,Internal,0,
+msk-1001,customer-kafka,MSK,kafka,3.5.1,kafka.m5.large,us-east-1,CustomerAnalytics,Prod,High,600,650,Internal,0,brokers=3
+emr-1001,customer-ml-features,EMR,spark,emr-6.15,m5.2xlarge,us-east-1,CustomerAnalytics,Prod,Medium,0,900,Internal,0,
+ath-1001,customer-adhoc,Athena,,,,us-east-1,CustomerAnalytics,Prod,Low,0,40,Internal,0,
+vpc-1001,customer-vpc,VPC,,,,us-east-1,CustomerAnalytics,Prod,High,0,0,Internal,0,cidr=10.20.0.0/16
+iam-1001,customer-etl-role,IAM,,,,global,CustomerAnalytics,Prod,High,0,0,Restricted,0,
+kms-1001,customer-data-key,KMS,,,,us-east-1,CustomerAnalytics,Prod,High,0,1,Restricted,0,
+cog-1001,customer-user-pool,Cognito,,,,us-east-1,CustomerPortal,Prod,High,0,120,Restricted,0,users=250000
+sgm-1001,customer-churn-model,SageMaker,xgboost,,ml.m5.xlarge,us-east-1,CustomerAnalytics,Prod,Medium,0,310,Internal,0,endpoint=true
+iot-1001,hvac-telemetry,IoT Core,,,,us-east-1,ConnectedDevices,Prod,High,0,230,Internal,0,devices=12000
+ses-1001,customer-notify-email,SES,,,,us-east-1,CustomerPortal,Prod,Medium,0,15,Internal,0,
+ora-1001,legacy-billing-db,RDS,oracle-ee,19c,db.m5.2xlarge,us-east-1,LegacyBilling,Prod,High,900,2100,Confidential,0,license=BYOL
+ec2-2001,old-reporting-server,EC2,,,t2.medium,us-east-1,LegacyReporting,Prod,Low,50,35,Internal,210,owner=unknown
+ec2-2002,mainframe-gateway,EC2,,,c5.xlarge,us-east-1,MainframeBridge,Prod,High,200,160,Restricted,0,compliance=pinned-onprem-link
+qldb-1001,audit-ledger,QLDB,,,,us-east-1,LegacyBilling,Prod,Medium,20,40,Restricted,0,
+dx-1001,corp-direct-connect,Direct Connect,,,,us-east-1,SharedNetwork,Prod,High,0,600,Internal,0,bandwidth=1Gbps
