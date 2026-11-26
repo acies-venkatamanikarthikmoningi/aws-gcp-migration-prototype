@@ -165,6 +165,19 @@ New backend: `accelerator/codecheck.py`, `accelerator/codehistory.py`, `accelera
 
 **Still not built from the original plan:** approving a load plan and starting or retrying load runs from the screen (Round 4). Without a real source and target connection it would only replay the sample's simulated data, so it waits for the connector track.
 
+## Round 8: incremental loads shown on Load runs
+
+What it answers: the console showed the historical backfill prominently, but the incremental loads that kept the Google Cloud copy current were only plain rows in the runs table. They happened and were recorded; the screen did not say so.
+
+- **New section "Historical and incremental loads"** above the load controls: three cards (Historical backfill, Incremental catch-up, Change events (CDC)). Each shows status, rows loaded or events applied, the position reached (watermark or log position), and the audit entry that recorded it (event name, entry number, time, hash prefix). Selecting a card opens that run below.
+- **Evidence that the gap closed.** A line under the cards quotes the two existing freshness checks: before the incremental loads the Google Cloud copy was behind AWS (the sample: 5,354 minutes), and after catch-up and CDC the final check passes with a lag of 0. Both are on the Validation screen.
+- **"Recorded" box on incremental runs.** Catch-up: watermark moved from and to, rows pulled, inserted, updated, rejected, merge method, audit entry. CDC: events received, applied, inserts, updates and deletes, events skipped as already applied, log position from and to, source commit times, audit entry. The replay run shows a "Replay check" note: the same events were delivered again and none were applied twice.
+- **Labels.** The incremental and CDC cards and boxes carry "Simulated source change", as elsewhere: the source changes come from sample files, not a live AWS feed.
+- **Readable names.** Run types read "Historical backfill", "Incremental catch-up", "Change events (CDC)" instead of "Cdc apply". For CDC runs, rows extracted and loaded now show the event counts instead of a dash.
+- **One backend change, small.** CDC runs now record the log position range, the position before the run, the events received and the commit time range in the batch checkpoint, and a replay with nothing new is labelled "no new events (already applied up to lsn 9005)" instead of the backwards range `lsn 9006..9005`. Runs saved before this show what they have and a dash for the rest. Nothing else in the engine changed. New test: `test_incremental_and_cdc_loads_are_recorded_for_the_console`.
+
+Not changed: starting or retrying runs from the screen is still not built, and there is no button to simulate a source change.
+
 ## Design basis
 
 - Layout follows the patterns cloud consoles use for this kind of work (AWS Cloudscape, Google Cloud Migration Center, IBM Carbon tables):

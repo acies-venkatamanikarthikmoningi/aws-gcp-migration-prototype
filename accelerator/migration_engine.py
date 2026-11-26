@@ -395,10 +395,15 @@ class DataMigrationEngine:
         self.store.insert("migration_runs", {"id": run_id, "plan_id": plan_id, "run_type": "CDC_APPLY", "run_status": "COMPLETED",
                                              "started_at": now(), "ended_at": now(), "watermark": f"lsn={last}; commit_ts={last_ts}",
                                              "totals": stats})
+        label = f"lsn {todo[0]['lsn']}..{last}" if todo else f"no new events (already applied up to lsn {last})"
         self.store.insert("migration_batches", {"id": new_id("BAT-"), "run_id": run_id, "batch_key": "CDC001",
-                                                "partition": f"lsn {hwm + 1}..{last}", "status": "LOADED", "attempt": 1,
+                                                "partition": label, "status": "LOADED", "attempt": 1,
                                                 "source_count": len(todo), "loaded": len(todo), "rejected": 0,
-                                                "checkpoint": {"stage": "LOADED", "applied_lsn": last, **stats}, "updated_at": now()})
+                                                "checkpoint": {"stage": "LOADED", "applied_lsn": last, "previous_applied_lsn": hwm,
+                                                               "lsn_from": todo[0]["lsn"] if todo else None, "lsn_to": last,
+                                                               "events_received": len(events), "first_commit_ts": min([e["commit_ts"] for e in todo], default=None),
+                                                               "last_commit_ts": max([e["commit_ts"] for e in todo], default=None), **stats},
+                                                "updated_at": now()})
         self.store.audit(self.project_id, self.actor, "CDC_APPLIED", "migration_run", run_id, stats)
         return self.store.get("migration_runs", run_id)
 

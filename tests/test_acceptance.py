@@ -165,6 +165,32 @@ def test_cdc_replay_is_idempotent(run):
     assert cdc[-1]["totals"]["skipped_already_applied"] == 5
 
 
+def test_incremental_and_cdc_loads_are_recorded_for_the_console(run):
+    """Round 8: the Load runs screen shows the incremental loads from what the engine recorded, so that record must exist."""
+    _, st = run
+    runs = st["migration"]["runs"]
+    cp = lambda r: r["batches"][0]["checkpoint"]  # noqa: E731
+    inc = [r for r in runs if r["run_type"] == "INCREMENTAL_CATCH_UP"]
+    assert len(inc) == 1 and inc[0]["run_status"] == "COMPLETED"
+    c = cp(inc[0])
+    assert c["from_watermark"] < c["to_watermark"] and c["inserted"] + c["updated"] == inc[0]["batches"][0]["loaded"] == 13
+    cdc = [r for r in runs if r["run_type"] == "CDC_APPLY"]
+    first, replay = cdc[0], cdc[-1]
+    f = cp(first)
+    assert (f["lsn_from"], f["lsn_to"], f["applied_lsn"], f["previous_applied_lsn"], f["events_received"]) == (9001, 9005, 9005, 0, 5)
+    assert first["totals"]["I"] + first["totals"]["U"] + first["totals"]["D"] == 5
+    r = cp(replay)  # the same events delivered again: nothing applied, position unchanged, label no longer a backwards range
+    assert r["events_received"] == 5 and replay["totals"]["skipped_already_applied"] == 5 and r["applied_lsn"] == 9005
+    assert r["lsn_from"] is None and replay["batches"][0]["partition"].startswith("no new events")
+    # every one of these runs has its audit entry, which the screen quotes
+    acts = {(e["entity_id"], e["action"]) for e in st["audit"]["events"]}
+    assert (inc[0]["id"], "INCREMENTAL_APPLIED") in acts and (first["id"], "CDC_APPLIED") in acts and (replay["id"], "CDC_APPLIED") in acts
+    # the freshness evidence the screen quotes: behind before catch-up, level after
+    fr = lambda rt: [x for v in st["validations"] if v["run_type"] == rt for x in v["results"] if x["dimension"] == "freshness"][-1]  # noqa: E731
+    assert fr("INCREMENTAL_VALIDATION")["status"] == "FAIL" and fr("INCREMENTAL_VALIDATION")["details"]["lag_minutes"] > 0
+    assert fr("FINAL_CUTOVER_VALIDATION")["status"] == "PASS" and fr("FINAL_CUTOVER_VALIDATION")["details"]["lag_minutes"] == 0
+
+
 def test_rejected_rows_quarantined(run):
     o, _ = run
     q = list((o.workdir / "gcs_landing" / "_quarantine").rglob("*_rejected.csv"))

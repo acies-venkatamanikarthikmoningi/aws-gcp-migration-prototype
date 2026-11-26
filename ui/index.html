@@ -254,6 +254,21 @@ pre.json{margin:0;background:var(--sunken);border:1px solid var(--rule-2);border
 .flist .m{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--ink-2);margin-top:2px}
 
 /* batches */
+.lanes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0}
+.lane{all:unset;box-sizing:border-box;display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch;text-align:left;cursor:pointer;padding:12px 14px 12px;border-right:1px solid var(--rule-2);position:relative;min-width:0}
+.lane:last-child{border-right:0}
+.lane::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--rule)}
+.lane.pass::before{background:var(--pass)}.lane.fail::before{background:var(--fail)}.lane.review::before{background:#c98a1a}
+.lane:hover{background:var(--sunken)}.lane:focus-visible{outline:2px solid var(--action);outline-offset:-2px}
+.lane.sel{background:var(--action-soft)}
+.lane .lt{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:2px}.lane .lt b{font-size:14px}
+.lane .ls{font-size:12px;color:var(--ink-2);margin-bottom:8px}
+.lane .lv{font-size:22px;line-height:28px;font-weight:600}.lane .lv span{font-size:12px;font-weight:400;color:var(--ink-2)}
+.lane .ld{font-size:12.5px;color:var(--ink);margin-top:4px}.lane .lr{font-size:11.5px;color:var(--ink-3);margin-top:6px}
+.lane.none{cursor:default}.lane.none:hover{background:none}
+.rec{border:1px solid var(--rule);border-radius:var(--r2);background:var(--sunken);padding:10px 12px;margin-bottom:12px}
+.rec h3{margin:0 0 6px;font-size:13px}
+@media (max-width:900px){.lanes{grid-template-columns:1fr}.lane{border-right:0;border-bottom:1px solid var(--rule-2)}}
 .batches{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px}
 .batch{border:1px solid var(--rule);border-top:3px solid var(--pass);background:var(--surface);border-radius:var(--r);padding:6px 8px;text-align:left;cursor:pointer;font-size:12px;line-height:16px}
 .batch:hover{border-color:#b9c0c8}
@@ -1280,7 +1295,7 @@ function journey(){
 /* ============================================================== 8 load runs */
 function vLoads(){
   const runs=S.migration.runs;UI.lSel=UI.lSel||(runs[0]&&runs[0].id);
-  return head("loads","Every batch has an ID, an attempt count, a SHA-256 checksum and a checkpoint. A failed batch resumes from its last completed stage without reloading the others.")+journey()+loadControlsBox()+
+  return head("loads","Every batch has an ID, an attempt count, a SHA-256 checksum and a checkpoint. A failed batch resumes from its last completed stage without reloading the others.")+journey()+loadsOverview()+loadControlsBox()+
   `<div id="lTbl"></div><div id="lRun" style="margin-top:16px"></div>`;
 }
 function bLoads(){
@@ -1288,21 +1303,23 @@ function bLoads(){
   const lc=$("#lcGo");if(lc)lc.onclick=async()=>{lc.disabled=true;try{await api(`/api/v1/projects/${encodeURIComponent(S.project.id)}/load-controls`,{plan_id:S.load_controls.plan_id,max_parallel:parseInt($("#lcN").value,10),by:$("#lcBy").value,note:$("#lcWhy").value});
     await refresh({k:"ok",html:"Load control saved. It applies to the next run."})}catch(e){lc.disabled=false;$("#lcErr").textContent=e.message}};
   const draw=()=>mountTable("#lTbl","tRuns",runs,[
-    {k:"id",l:"Run",r:x=>`<span class="mono">${esc(x.id)}</span>`},{k:"run_type",l:"Type",r:x=>esc(human(x.run_type))},{k:"run_status",l:"Status",r:x=>st(x.run_status)},
+    {k:"id",l:"Run",r:x=>`<span class="mono">${esc(x.id)}</span>`},{k:"run_type",l:"Type",r:x=>esc(runLabel(x.run_type))},{k:"run_status",l:"Status",r:x=>st(x.run_status)},
     {k:"watermark",l:"Watermark",r:x=>`<span class="small mono">${esc(x.watermark)}</span>`},{k:"b",l:"Batches",num:true,s:x=>x.batches.length,r:x=>x.batches.length},
     {k:"r",l:"Rows loaded",num:true,s:x=>(x.totals||{}).rows_loaded??0,r:x=>fmt((x.totals||{}).rows_loaded??x.batches.reduce((a,b)=>a+(b.loaded||0),0))},
     {k:"q",l:"Quarantined",num:true,s:x=>(x.totals||{}).rows_rejected??0,r:x=>{const q=(x.totals||{}).rows_rejected??0;return q?`<span style="color:var(--review);font-weight:600">${fmt(q)}</span>`:"0"}},
     {k:"by",l:"Data moved",num:true,s:x=>(x.indicators||{}).bytes||0,r:x=>(x.indicators||{}).bytes_known_for?bytesH(x.indicators.bytes):'<span class="muted small">Not recorded</span>'}],
-    {onSelect:r=>{UI.lSel=r.id;UI.bSel=null;draw();lRun()},selected:UI.lSel});
+    {onSelect:r=>{UI.lSel=r.id;UI.bSel=null;draw();lRun();syncLanes()},selected:UI.lSel});
+  const syncLanes=()=>$$(".lane[data-run]").forEach(x=>x.classList.toggle("sel",x.dataset.run===UI.lSel));
+  $$(".lane[data-run]").forEach(el=>el.onclick=()=>{UI.lSel=el.dataset.run;UI.bSel=null;draw();lRun();syncLanes();$("#lRun").scrollIntoView({block:"start"})});
   draw();lRun();
 }
 function lRun(){
   const r=S.migration.runs.find(x=>x.id===UI.lSel);if(!r){$("#lRun").innerHTML="";return}
   const t=r.totals||{}, ind=r.indicators||{};
   const retried=r.batches.filter(b=>b.attempt>1).length;
-  $("#lRun").innerHTML=`<div class="split"><div class="box"><div class="hd"><div><h2>${esc(human(r.run_type))}</h2><div class="small muted mono">${esc(r.id)} · ${esc(String(r.started_at).replace("T"," ").slice(0,19))}</div></div>${st(r.run_status)}</div>
-   <div class="bd">${r.error_summary?`<div class="flash err"><div>${esc(r.error_summary)}</div></div>`:""}
-    <div class="metrics" style="margin-bottom:12px;grid-template-columns:repeat(5,minmax(0,1fr))"><div><div class="v">${fmt(t.batches??r.batches.length)}</div><div class="l">Batches</div></div><div><div class="v">${fmt(t.rows_extracted??"–")}</div><div class="l">Rows extracted</div></div><div><div class="v">${fmt(t.rows_loaded??"–")}</div><div class="l">Rows loaded</div></div><div><div class="v ${t.rows_rejected?"review":""}">${fmt(t.rows_rejected??0)}</div><div class="l">Quarantined</div></div><div><div class="v ${retried?"review":""}">${retried}</div><div class="l">Batches retried</div></div></div>
+  $("#lRun").innerHTML=`<div class="split"><div class="box"><div class="hd"><div><h2>${esc(runLabel(r.run_type))}</h2><div class="small muted mono">${esc(r.id)} · ${esc(String(r.started_at).replace("T"," ").slice(0,19))}</div></div>${st(r.run_status)}</div>
+   <div class="bd">${r.error_summary?`<div class="flash err"><div>${esc(r.error_summary)}</div></div>`:""}${incrementalDetail(r)}
+    <div class="metrics" style="margin-bottom:12px;grid-template-columns:repeat(5,minmax(0,1fr))"><div><div class="v">${fmt(t.batches??r.batches.length)}</div><div class="l">Batches</div></div><div><div class="v">${fmt(t.rows_extracted??r.batches.reduce((a,b)=>a+(b.source_count||0),0))}</div><div class="l">Rows extracted</div></div><div><div class="v">${fmt(t.rows_loaded??r.batches.reduce((a,b)=>a+(b.loaded||0),0))}</div><div class="l">Rows loaded</div></div><div><div class="v ${t.rows_rejected?"review":""}">${fmt(t.rows_rejected??0)}</div><div class="l">Quarantined</div></div><div><div class="v ${retried?"review":""}">${retried}</div><div class="l">Batches retried</div></div></div>
     <div class="metrics" style="margin-bottom:12px;grid-template-columns:repeat(4,minmax(0,1fr))"><div><div class="v">${ind.bytes_known_for?bytesH(ind.bytes):"–"}</div><div class="l">Data moved${ind.bytes_known_for&&ind.bytes_known_for<ind.batches?` (${ind.bytes_known_for} of ${ind.batches} batches)`:""}</div></div>
      <div><div class="v">${ind.seconds!=null?`${fmt(ind.seconds)} s`:"–"}</div><div class="l">Elapsed</div></div>
      <div><div class="v">${ind.peak_parallel??"–"} <span class="small muted" style="font-weight:400">of ${esc(ind.max_parallel??"–")}</span></div><div class="l">${ind.peak_parallel!=null?"Most batches in flight at once, of the limit":"Batch timings not recorded for this run"}</div></div>
@@ -1315,6 +1332,78 @@ function lRun(){
      `<h3>Checkpoint</h3><pre class="json">${esc(JSON.stringify(b.checkpoint,null,2))}</pre>`);closeBind("#bPanel",()=>{UI.bSel=null;lRun()})};
   $$("#lRun .batch").forEach(el=>el.onclick=()=>{const b=r.batches[+el.dataset.i];UI.bSel=b.id;$$("#lRun .batch").forEach(x=>x.classList.toggle("sel",x===el));bp(b)});
   const sb=r.batches.find(b=>b.id===UI.bSel);sb?bp(sb):$("#bPanel").innerHTML=panelEmpty("Select a batch to see its counts, checksum, landing location and checkpoint.");
+}
+
+/* ------------------------------------------------- historical and incremental loads (Round 8) */
+const runLabel=s=>({FULL_HISTORICAL_BACKFILL:"Historical backfill",SELECTIVE_RELOAD:"Selective reload",INCREMENTAL_CATCH_UP:"Incremental catch-up",CDC_APPLY:"Change events (CDC)"})[s]||human(s);
+const tsH=x=>String(x||"").replace("T"," ").slice(0,19);
+function loadKinds(){
+  const R=S.migration.runs||[], cp=r=>((r.batches||[])[0]||{}).checkpoint||{};
+  const cdc=R.filter(r=>r.run_type==="CDC_APPLY");
+  const applied=r=>{const t=r.totals||{};return(t.I||0)+(t.U||0)+(t.D||0)};
+  return {hist:R.find(r=>r.run_type==="FULL_HISTORICAL_BACKFILL"),inc:R.filter(r=>r.run_type==="INCREMENTAL_CATCH_UP").slice(-1)[0],
+    cdc:cdc.find(r=>applied(r)>0)||cdc[0],replay:cdc.find(r=>applied(r)===0&&((r.totals||{}).skipped_already_applied||0)>0),cp,applied};
+}
+function auditOf(runId,actions){return((S.audit&&S.audit.events)||[]).filter(e=>e.entity_id===runId&&actions.includes(e.action)).slice(-1)[0]}
+function auditLine(runId,actions){
+  const a=auditOf(runId,actions);
+  return a?`<code>${esc(a.action)}</code> · entry ${esc(a.seq)} · ${esc(tsH(a.ts))} · hash <code>${esc(String(a.hash).slice(0,12))}</code>`:'<span class="muted">No audit entry found</span>';
+}
+function freshnessOf(runType){
+  const v=(S.validations||[]).filter(x=>x.run_type===runType).slice(-1)[0];if(!v)return null;
+  const f=(v.results||[]).find(r=>r.dimension==="freshness");return f?{status:f.status,lag:(f.details||{}).lag_minutes,src:f.source_value,tgt:f.target_value}:null;
+}
+function lagText(m){if(m==null)return "not measured";if(m===0)return "0 min";const d=m/1440;return `${fmt(m)} min${d>=1?` (about ${d.toFixed(1)} days)`:""}`}
+function loadsOverview(){
+  const K=loadKinds();if(!K.hist&&!K.inc&&!K.cdc)return "";
+  const sel=id=>UI.lSel===id?"sel":"", tone_=r=>r?tone(r.run_status):"";
+  const hist=K.hist, inc=K.inc, cdc=K.cdc, hc=hist?K.cp(hist):{}, ic=inc?K.cp(inc):{}, cc=cdc?K.cp(cdc):{};
+  const rows=r=>fmt(((r.totals||{}).rows_loaded)??r.batches.reduce((a,b)=>a+(b.loaded||0),0));
+  const sim='<span class="tag neutral" title="The AWS sample source was changed on purpose after the baseline; this is not a live AWS feed.">Simulated source change</span>';
+  const card=(r,title,sub,big,lines,aud,extra="")=>r?`<button class="lane ${tone_(r)} ${sel(r.id)}" data-run="${esc(r.id)}" aria-label="Open ${esc(title)} run"><div class="lt"><b>${esc(title)}</b>${st(r.run_status)}</div><div class="ls">${sub}</div>
+      <div class="lv">${big}</div>${lines.map(l=>`<div class="ld">${l}</div>`).join("")}${extra}<div class="lr">Recorded: ${aud}</div></button>`
+    :`<div class="lane none"><div class="lt"><b>${esc(title)}</b>${st("NOT_RUN","Not run")}</div><div class="ls">${sub}</div><div class="ld muted">This load has not been recorded for this project.</div></div>`;
+  const parts=hist?(hist.batches||[]).map(b=>b.partition).sort():[];
+  const a1=cdc?K.applied(cdc):0, t=cdc?(cdc.totals||{}):{};
+  const rep=K.replay?`<div class="ld" style="color:var(--pass)">Re-delivered once: ${fmt((K.replay.totals||{}).skipped_already_applied)} skipped, none applied twice</div>`:"";
+  const f1=freshnessOf("INCREMENTAL_VALIDATION"), f2=freshnessOf("FINAL_CUTOVER_VALIDATION");
+  return `<div class="box" style="margin-bottom:16px"><div class="hd"><h2>Historical and incremental loads</h2><span class="note">Select a card to see its run in full</span></div>
+   <div class="lanes">
+    ${card(hist,"Historical backfill",`One-time copy of all history, one batch per month<div style="margin-top:4px"><span class="tag neutral">Snapshot at a point in time</span></div>`,`${rows(hist)} <span>rows loaded</span>`,
+      [`${fmt(hist?hist.batches.length:0)} monthly batches${parts.length?`, ${esc(parts[0])} to ${esc(parts[parts.length-1])}`:""}`,`Snapshot taken at watermark <code>${esc(hist?hist.watermark:"")}</code>`],
+      hist?auditLine(hist.id,["MIGRATION_RUN_FINISHED"]):"")}
+    ${card(inc,"Incremental catch-up",`Rows that changed after the snapshot<div style="margin-top:4px">${sim}</div>`,inc?`${rows(inc)} <span>rows loaded</span>`:"",
+      inc?[`${fmt(ic.inserted??"–")} new, ${fmt(ic.updated??"–")} updated (merged on order_id)`,`Watermark <code>${esc(ic.from_watermark||"")}</code> → <code>${esc(ic.to_watermark||"")}</code>`]:[],
+      inc?auditLine(inc.id,["INCREMENTAL_APPLIED"]):"")}
+    ${card(cdc,"Change events (CDC)",`Ordered insert, update and delete events<div style="margin-top:4px">${sim}</div>`,cdc?`${fmt(a1)} <span>events applied</span>`:"",
+      cdc?[`${fmt(t.I||0)} inserts, ${fmt(t.U||0)} updates, ${fmt(t.D||0)} deletes`,`Reached log position (LSN) <code>${esc(cc.applied_lsn??"–")}</code>`]:[],
+      cdc?auditLine(cdc.id,["CDC_APPLIED"]):"",rep)}
+   </div>
+   ${(f1||f2)?`<div class="bd" style="border-top:1px solid var(--rule-2)"><div class="small"><b>Did the incremental loads close the gap?</b>
+     ${f1?` Before them, the freshness check ${st(f1.status)} because the Google Cloud copy was <b>${esc(lagText(f1.lag))}</b> behind AWS.`:""}
+     ${f2?` After catch-up and CDC, the final check ${st(f2.status)} with a lag of <b>${esc(lagText(f2.lag))}</b>.`:""}
+     <span class="muted"> Both checks are on the Validation screen.</span></div></div>`:""}
+  </div>`;
+}
+function incrementalDetail(r){
+  const b=(r.batches||[])[0]||{}, cp=b.checkpoint||{}, t=r.totals||{};
+  if(r.run_type==="INCREMENTAL_CATCH_UP"){
+    return `<div class="rec"><h3>Recorded: incremental catch-up <span class="tag neutral" style="margin-left:6px">Simulated source change</span></h3>
+     <p class="small" style="margin:0 0 8px">After the historical snapshot, orders kept changing in AWS. This run pulled every row whose <code>updated_at</code> was later than the snapshot watermark and merged it into the Google Cloud table.</p>
+     ${kv([["Watermark moved",`<code>${esc(cp.from_watermark||"–")}</code> → <code>${esc(cp.to_watermark||"–")}</code>`],["Rows pulled from the source",fmt(b.extracted??"–")],
+       ["New rows (inserted)",fmt(cp.inserted??"–")],["Existing rows (updated)",fmt(cp.updated??"–")],["Rejected",fmt(b.rejected??0)],["Load method",esc(cp.mode||"MERGE ON order_id")],
+       ["Safe to repeat","Yes. A merge on the key gives the same result if it is run again."],["Audit trail",auditLine(r.id,["INCREMENTAL_APPLIED"])]])}</div>`;
+  }
+  if(r.run_type==="CDC_APPLY"){
+    const applied=(t.I||0)+(t.U||0)+(t.D||0), replay=applied===0&&(t.skipped_already_applied||0)>0;
+    return `<div class="rec"><h3>Recorded: change events (CDC) <span class="tag neutral" style="margin-left:6px">Simulated source change</span></h3>
+     <p class="small" style="margin:0 0 8px">The source keeps an ordered log of every change. Each event has a log position number (LSN). The target remembers the highest LSN it has applied and ignores anything at or below it.</p>
+     ${replay?`<div class="flash ok" style="margin-bottom:8px"><div><b>Replay check.</b> The same ${fmt(cp.events_received??t.skipped_already_applied)} events were delivered again. All ${fmt(t.skipped_already_applied)} were skipped, so nothing was applied twice and the target did not change.</div></div>`:""}
+     ${kv([["Events received",fmt(cp.events_received??"–")],["Applied",fmt(applied)],["Inserts, updates, deletes",`${fmt(t.I||0)}, ${fmt(t.U||0)}, ${fmt(t.D||0)}`],
+       ["Skipped as already applied",fmt(t.skipped_already_applied||0)],["Log position (LSN)",cp.lsn_from!=null?`${esc(cp.previous_applied_lsn??0)} → <code>${esc(cp.applied_lsn)}</code> (events ${esc(cp.lsn_from)} to ${esc(cp.lsn_to)})`:`<code>${esc(cp.applied_lsn??"–")}</code>`],
+       ["Source commit times",cp.first_commit_ts?`${esc(tsH(cp.first_commit_ts))} to ${esc(tsH(cp.last_commit_ts))}`:""],["Audit trail",auditLine(r.id,["CDC_APPLIED"])]])}</div>`;
+  }
+  return "";
 }
 
 /* ------------------------------------------------- load controls and indicators (Round 7) */
