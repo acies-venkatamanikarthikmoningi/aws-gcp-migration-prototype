@@ -178,6 +178,16 @@ What it answers: the console showed the historical backfill prominently, but the
 
 Not changed: starting or retrying runs from the screen is still not built, and there is no button to simulate a source change.
 
+## Round 9: Load runs tidy-up, Reports order, search almost everywhere
+
+- **Watermark removed from Load runs.** It no longer appears in the Historical and incremental loads cards, as a column in the runs table, in the incremental run's "Recorded" box, or in the journey strip (which now says "Incremental and CDC, replay-safe"). The incremental run's batch is labelled "Changed after the snapshot" instead of showing its timestamp. This is display only: the stored record, and the raw checkpoint JSON in the batch panel, still hold the watermark fields.
+- **"Run" is now "Run ID"** in the runs table.
+- **Batches are a table, not a grid.** Batch, Partition, Status, Rows loaded, Quarantined and Attempts, sortable, with a search box, in a scrollable area with a fixed header (about ten rows tall, so 24 batches no longer push the page down). Selecting a row opens the batch panel as before. A new run starts with an empty search.
+- **Reports and audit order.** The runs section comes first (tabs: Engine runs, Approvals, Audit log, with Engine runs open by default), then Audit integrity, then Exports at the bottom, now with its own search.
+- **Search.** Every table drawn by the shared table component now has a "Search this table" box. Every word typed must appear somewhere in what the row shows (the text of its cells), and an "N of M" count appears while searching. Tables that already had their own search keep it: Uploads, Discovery, Service mapping, and the Audit log. Also added: a "Find a resource" box on the Dependencies graph (matching boxes stay bright, the rest fade; Enter opens the first match), Search exports, and Search artefacts on Code conversion.
+- **Not covered.** The small tables printed inside side panels (findings, requirements, needs review, generated tests, versions, checks, mapping log, data-quality results, gates) are static and cannot be searched yet.
+- **No backend or API change.**
+
 ## Design basis
 
 - Layout follows the patterns cloud consoles use for this kind of work (AWS Cloudscape, Google Cloud Migration Center, IBM Carbon tables):

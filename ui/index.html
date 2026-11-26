@@ -173,6 +173,11 @@ tbody tr.sel td:first-child{box-shadow:inset 2px 0 0 var(--action)}
 td.empty{color:var(--ink-3);padding:20px 12px;text-align:center}
 .pager{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;border-top:1px solid var(--rule-2);font-size:12px;color:var(--ink-2);background:var(--surface)}
 .pager .pgb{display:flex;gap:4px}
+.tsearch{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.tsearch.flush{margin:0;padding:8px 12px;border-bottom:1px solid var(--rule-2);background:var(--surface)}
+.tsearch input[type=search]{min-width:0;width:100%;max-width:300px}
+.tw.scroll{max-height:340px;overflow:auto}
+#gQ{min-width:170px;width:190px}
 
 /* split view */
 .split{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;align-items:start}
@@ -564,23 +569,33 @@ function roNote(what){return `<div class="ro-note">${esc(what)} needs the live A
 
 /* table: cols = [{k,l,r(row),s(sortValue)|false,num,w}] */
 function table(id,rows,cols,o={}){
-  const t=TS[id]=TS[id]||{k:o.sort||null,d:o.dir||1,p:0};
+  const t=TS[id]=TS[id]||{k:o.sort||null,d:o.dir||1,p:0,q:""};
   let rs=rows.slice();
+  // search: every word typed must appear somewhere in what the row shows (the text of its cells)
+  const useSearch=o.search===true&&rows.length>0;
+  const plain=h=>String(h==null?"":h).replace(/<[^>]*>/g," ").replace(/&(nbsp|amp|lt|gt|quot|#39);/g,(m,c)=>({nbsp:" ",amp:"&",lt:"<",gt:">",quot:'"',"#39":"'"})[c]).toLowerCase();
+  const terms=useSearch&&t.q?t.q.toLowerCase().split(/\s+/).filter(Boolean):[];
+  if(terms.length)rs=rs.filter(r=>{const h=cols.map(c=>plain(c.r?c.r(r):r[c.k])).join(" ");return terms.every(w=>h.includes(w))});
   if(t.k){const c=cols.find(c=>c.k===t.k);if(c){const sv=c.s||(r=>r[c.k]);rs.sort((a,b)=>{const x=sv(a),y=sv(b);return(x==null)-(y==null)||(x>y?1:x<y?-1:0)*t.d})}}
-  const size=o.page||25, pages=Math.max(1,Math.ceil(rs.length/size)); if(t.p>=pages)t.p=pages-1;
+  const size=o.scroll?Math.max(rs.length,1):(o.page||25), pages=Math.max(1,Math.ceil(rs.length/size)); if(t.p>=pages)t.p=pages-1;
   const view=rs.slice(t.p*size,(t.p+1)*size);
   const key=o.key||(r=>r.id);
   const th=cols.map(c=>{const sortable=c.s!==false;const on=t.k===c.k;
     return `<th scope="col" class="${sortable?"sortable":""} ${c.num?"num":""}" ${c.w?`style="width:${c.w}"`:""} data-k="${esc(c.k)}" ${sortable?`aria-sort="${on?(t.d>0?"ascending":"descending"):"none"}"`:""}>${esc(c.l)}${sortable?`<span class="arr">${on?(t.d>0?"↑":"↓"):""}</span>`:""}</th>`}).join("");
   const tb=view.map(r=>`<tr ${o.onSelect?`class="click ${o.selected!=null&&key(r)===o.selected?"sel":""}" tabindex="0" data-key="${esc(key(r))}"`:""}>${cols.map(c=>`<td class="${c.num?"num":""}">${c.r?c.r(r):esc(r[c.k])}</td>`).join("")}</tr>`).join("");
-  const html=`<div class="tw ${o.flush?"flush":""}" id="${id}"><table><thead><tr>${th}</tr></thead><tbody>${tb||`<tr><td colspan="${cols.length}" class="empty">${esc(o.empty||"No items match these filters.")}</td></tr>`}</tbody></table>
+  const sh=useSearch?`<div class="tsearch ${o.flush?"flush":""}"><input type="search" class="tq" data-tq="${esc(id)}" placeholder="Search this table" aria-label="Search this table" value="${esc(t.q||"")}">${terms.length?`<span class="small muted">${fmt(rs.length)} of ${fmt(rows.length)}</span>`:""}</div>`:"";
+  const html=sh+`<div class="tw ${o.flush?"flush":""} ${o.scroll?"scroll":""}" id="${id}"><table><thead><tr>${th}</tr></thead><tbody>${tb||`<tr><td colspan="${cols.length}" class="empty">${esc(o.empty||"No items match these filters.")}</td></tr>`}</tbody></table>
    ${rs.length>size?`<div class="pager"><span>${t.p*size+1}–${Math.min(rs.length,(t.p+1)*size)} of ${fmt(rs.length)}</span><div class="pgb"><button class="btn sm" data-pg="-1" ${t.p===0?"disabled":""}>Previous</button><button class="btn sm" data-pg="1" ${t.p>=pages-1?"disabled":""}>Next</button></div></div>`:""}</div>`;
   return {html,bind:(rerender)=>{const el=document.getElementById(id);if(!el)return;
+    const qi=document.querySelector(`input.tq[data-tq="${id}"]`);
+    if(qi)qi.oninput=e=>{const pos=e.target.selectionStart;t.q=e.target.value;t.p=0;rerender();           // the table is redrawn, so put the cursor back
+      const n=document.querySelector(`input.tq[data-tq="${id}"]`);if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(_){}}};
     $$("th.sortable",el).forEach(h=>h.onclick=()=>{const k=h.dataset.k;if(t.k===k)t.d=-t.d;else{t.k=k;t.d=1}t.p=0;rerender()});
     $$("[data-pg]",el).forEach(b=>b.onclick=()=>{t.p+= +b.dataset.pg;rerender()});
     if(o.onSelect)$$("tr.click",el).forEach(tr=>{const go=()=>{const r=rows.find(x=>String(key(x))===tr.dataset.key);o.onSelect(r)};tr.onclick=go;tr.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();go()}}})}};
 }
-function mountTable(sel,id,rows,cols,o={}){const go=()=>{const t=table(id,rows,cols,o);$(sel).innerHTML=t.html;t.bind(go)};go();}
+const OWN_SEARCH=new Set(["tUp","tDisc","tMap","tAud"]);     // these screens already have their own search box
+function mountTable(sel,id,rows,cols,o={}){const go=()=>{const t=table(id,rows,cols,{search:!OWN_SEARCH.has(id),...o});$(sel).innerHTML=t.html;t.bind(go)};go();}
 
 function latestValidations(){
   const m={};S.validations.filter(v=>v.run_type!=="SOURCE_BASELINE").forEach(v=>{m[v.object]=v});return Object.values(m);
@@ -907,7 +922,7 @@ function depGraphHtml(){
   const apps=[...new Set(S.graph.nodes.map(n=>n.application).filter(Boolean))].sort();
   const inf=S.graph.edges.filter(e=>e.status!=="CONFIRMED").length;
   return `<div class="toolbar"><label class="inline">Application <select id="gApp"><option value="">All applications</option>${apps.map(a=>`<option ${UI.gApp===a?"selected":""}>${esc(a)}</option>`).join("")}</select></label>
-   <span class="small muted">Select a resource to trace its links. Drag to pan, scroll to zoom.</span><label class="inline"><input type="checkbox" id="gInf" ${UI.gInf!==false?"checked":""}> Show inferred links (${inf})</label><span class="grow"></span>
+   <input type="search" id="gQ" placeholder="Find a resource" aria-label="Find a resource in the graph" value="${esc(UI.gQ||"")}"><span class="small muted" id="gQn" style="min-width:56px"></span><span class="small muted">Select a resource to trace its links. Drag to pan, scroll to zoom.</span><label class="inline"><input type="checkbox" id="gInf" ${UI.gInf!==false?"checked":""}> Show inferred links (${inf})</label><span class="grow"></span>
    <div class="legend"><span><i style="background:#9aa3ad"></i>Confirmed</span><span><i style="background:#1f5aa6"></i>Owner-confirmed</span><span><i style="background:repeating-linear-gradient(90deg,#c98a1a 0 4px,transparent 4px 7px)"></i>Inferred</span><span><i style="background:repeating-linear-gradient(90deg,#c0392b 0 2px,transparent 2px 5px)"></i>Not a real link</span><span><i style="background:var(--pass);height:8px;width:8px"></i>On Google Cloud</span><span><i style="background:var(--ink);height:8px;width:8px"></i>Consumer</span></div></div>
   <div class="split wide" id="gSplit"><div class="graphwrap" id="gWrap"><svg id="graph" role="img" aria-label="Dependency graph"></svg>
    <div class="gzoom"><button id="zIn" aria-label="Zoom in">+</button><button id="zOut" aria-label="Zoom out">−</button><button id="zFit" aria-label="Fit to view">Fit</button></div></div>
@@ -919,7 +934,16 @@ function depBody(){
   if(UI.dTab==="apps"){$("#dBody").innerHTML=`<div class="split"><div id="daTbl"></div><aside class="panel" id="daPanel"></aside></div>`;bDepApps();return}
   $("#dBody").innerHTML=depGraphHtml();bGraph();
 }
+function gMatches(){const q=(UI.gQ||"").trim().toLowerCase();if(!q)return null;const w=q.split(/\s+/);
+  return new Set(S.graph.nodes.filter(n=>{const h=[n.label,n.id,n.application,n.service,n.gcp_target,n.kind==="consumer"?"consumer":""].join(" ").toLowerCase();return w.every(x=>h.includes(x))}).map(n=>n.id))}
+function gSearch(){const svg=$("#graph");if(!svg)return;const m=gMatches();
+  if(!UI.gSel){$$(".gn",svg).forEach(n=>n.classList.toggle("dim",!!m&&!m.has(n.dataset.id)));
+    $$(".ge",svg).forEach(p=>p.classList.toggle("dim",!!m&&!(m.has(p.dataset.s)||m.has(p.dataset.t))))}
+  const c=$("#gQn");if(c)c.textContent=m?`${$$(".gn",svg).filter(n=>m.has(n.dataset.id)).length} found`:""}
 function bGraph(){
+  $("#gQ").oninput=e=>{UI.gQ=e.target.value;UI.gSel=null;drawGraph(false)};
+  $("#gQ").onkeydown=e=>{if(e.key!=="Enter")return;const m=gMatches(),hit=m&&$$(".gn",$("#graph")).find(n=>m.has(n.dataset.id));
+    if(hit){UI.gSel=hit.dataset.id;solo(false);hiGraph();gPanel(hit.dataset.id)}};
   $("#gApp").onchange=e=>{UI.gApp=e.target.value;UI.gSel=null;drawGraph(true)};
   $("#gInf").onchange=e=>{UI.gInf=e.target.checked;drawGraph(false)};
   const wrap=$("#gWrap"), svg=$("#graph");
@@ -971,6 +995,7 @@ function drawGraph(fit){
   $$(".gn",svg).forEach(el=>{const f=()=>{UI.gSel=el.dataset.id;solo(false);hiGraph();gPanel(el.dataset.id)};el.onclick=f;el.onkeydown=e=>{if(e.key==="Enter")f()}});
   if(fit)fitG();else applyG();
   if(UI.gSel&&nodes.some(n=>n.id===UI.gSel)){solo(false);hiGraph();gPanel(UI.gSel)}else{UI.gSel=null;solo(true)}
+  gSearch();
 }
 function solo(on){const s=$("#gSplit");if(s&&s.classList.contains("solo")!==on){s.classList.toggle("solo",on)}}
 function hiGraph(){const id=UI.gSel, svg=$("#graph");const near=new Set([id]);
@@ -1134,15 +1159,18 @@ function vConversion(){
   return head("conversion","Converters write to a separate, versioned output area. Source files are never modified and nothing is deployed. Every output waits for engineering review.",
     `<button class="btn" id="cZipAll">Download all outputs (.zip)</button>`)+`
   <div class="cols" style="grid-template-columns:300px minmax(0,1fr);align-items:start">
-   <div class="box"><div class="hd"><h2>Artefacts</h2><span class="note">${c.length}</span></div><ul class="flist" id="cList" role="listbox" aria-label="Converted artefacts">${c.map(x=>{const fails=x.checks.filter(k=>k.status==="FAIL").length,warns=x.checks.filter(k=>k.status!=="PASS").length+x.unsupported.length;
+   <div class="box"><div class="hd"><h2>Artefacts</h2><span class="note">${c.length}</span></div><div class="tsearch flush"><input type="search" id="cQ" placeholder="Search artefacts" aria-label="Search artefacts"></div><ul class="flist" id="cList" role="listbox" aria-label="Converted artefacts">${c.map(x=>{const fails=x.checks.filter(k=>k.status==="FAIL").length,warns=x.checks.filter(k=>k.status!=="PASS").length+x.unsupported.length;
      return `<li role="option" tabindex="0" data-id="${esc(x.id)}" aria-selected="${x.id===UI.cSel}"><div class="f">${esc(x.source_file)}</div><div class="m"><span>${esc(x.converter)}</span></div>
      <div class="m"><span class="barcell" title="Share of constructs the conversion rules handled. It is not a measure of correctness." style="grid-template-columns:70px 30px">${bar(x.confidence*100,x.confidence<.75?"review":"pass")}<span>${x.confidence}</span></span>${fails?st("FAIL",`${fails} failed`):(x.test_summary||{}).FAIL?st("FAIL",`${x.test_summary.FAIL} test${x.test_summary.FAIL>1?"s":""} failed`):warns?st("REVIEW",`${warns} to check`):st("PASS","Static checks pass")}</div>
-     <div class="m"><span class="small muted">Version ${x.current_n||1}${x.current_kind==="EDITED"?", edited":""}</span>${st(x.approval_status==="PENDING_REVIEW"?"PENDING":x.approval_status,x.approval_status==="PENDING_REVIEW"?"Awaiting review":null)}</div></li>`}).join("")}</ul></div>
+     <div class="m"><span class="small muted">Version ${x.current_n||1}${x.current_kind==="EDITED"?", edited":""}</span>${st(x.approval_status==="PENDING_REVIEW"?"PENDING":x.approval_status,x.approval_status==="PENDING_REVIEW"?"Awaiting review":null)}</div></li>`}).join("")}<li id="cNone" role="presentation" hidden class="small muted" style="padding:14px;list-style:none">No artefacts match.</li></ul></div>
    <div id="cWork"></div></div>`;
 }
 function bConversion(){
   const pick=id=>{UI.cSel=id;$$("#cList li").forEach(l=>l.setAttribute("aria-selected",l.dataset.id===id));cWork()};
-  $$("#cList li").forEach(l=>{l.onclick=()=>pick(l.dataset.id);l.onkeydown=e=>{if(e.key==="Enter")pick(l.dataset.id);if(e.key==="ArrowDown"&&l.nextElementSibling){l.nextElementSibling.focus();pick(l.nextElementSibling.dataset.id)}if(e.key==="ArrowUp"&&l.previousElementSibling){l.previousElementSibling.focus();pick(l.previousElementSibling.dataset.id)}}});
+  $$("#cList li").forEach(l=>{l.onclick=()=>pick(l.dataset.id);l.onkeydown=e=>{const sib=d=>{let x=d>0?l.nextElementSibling:l.previousElementSibling;while(x&&(x.hidden||!x.dataset.id))x=d>0?x.nextElementSibling:x.previousElementSibling;return x};
+    if(e.key==="Enter")pick(l.dataset.id);if(e.key==="ArrowDown"&&sib(1)){const n=sib(1);n.focus();pick(n.dataset.id)}if(e.key==="ArrowUp"&&sib(-1)){const n=sib(-1);n.focus();pick(n.dataset.id)}}});
+  $("#cQ").oninput=e=>{const w=e.target.value.toLowerCase().split(/\s+/).filter(Boolean);let n=0;
+    $$("#cList li[data-id]").forEach(l=>{const ok=w.every(x=>l.textContent.toLowerCase().includes(x));l.hidden=!ok;if(ok)n++});$("#cNone").hidden=n>0};
   $("#cZipAll").onclick=()=>{const files={};S.conversions.forEach(c=>Object.entries(c.outputs).forEach(([k,v])=>files[k]=v));downloadZip("gcp_converted_outputs.zip",files)};
   cWork();
 }
@@ -1283,7 +1311,7 @@ function journey(){
     ["Transfer",retry?"recovered":first?"pass":"",retry?"Checksum mismatch, retried":"Integrity verified"],
     ["Load",first?"pass":"",first?`${fmt(first.totals.rows_loaded)} loaded, ${first.totals.rows_rejected} quarantined`:""],
     ["Merge",has("CATCH UP")?"pass":"","Partition replace and MERGE"],
-    ["Catch up",has("CDC")?"pass":"",has("CDC")?"Watermark and CDC, replay-safe":""],
+    ["Catch up",has("CDC")?"pass":"",has("CDC")?"Incremental and CDC, replay-safe":""],
     ["Validate",fin?((cust&&cust.status==="FAIL")||fin.status==="FAIL"?"fail":fin.status==="PASS"?(v1&&v1.status==="FAIL"?"recovered":"pass"):"review"):"",fin?`Orders ${fin.status.toLowerCase()}, customer ${cust?cust.status.toLowerCase():"not run"}`:""],
     ["Re-run",has("REMEDIATE")?"pass":"",has("REMEDIATE")?`${has("REMEDIATE").partitions.length} partitions reloaded`:""],
     ["Sign off",k.apps_blocked?"fail":"pass",k.apps_blocked?`${k.apps_blocked} of ${k.apps_total} apps blocked`:"Ready"]];
@@ -1303,8 +1331,8 @@ function bLoads(){
   const lc=$("#lcGo");if(lc)lc.onclick=async()=>{lc.disabled=true;try{await api(`/api/v1/projects/${encodeURIComponent(S.project.id)}/load-controls`,{plan_id:S.load_controls.plan_id,max_parallel:parseInt($("#lcN").value,10),by:$("#lcBy").value,note:$("#lcWhy").value});
     await refresh({k:"ok",html:"Load control saved. It applies to the next run."})}catch(e){lc.disabled=false;$("#lcErr").textContent=e.message}};
   const draw=()=>mountTable("#lTbl","tRuns",runs,[
-    {k:"id",l:"Run",r:x=>`<span class="mono">${esc(x.id)}</span>`},{k:"run_type",l:"Type",r:x=>esc(runLabel(x.run_type))},{k:"run_status",l:"Status",r:x=>st(x.run_status)},
-    {k:"watermark",l:"Watermark",r:x=>`<span class="small mono">${esc(x.watermark)}</span>`},{k:"b",l:"Batches",num:true,s:x=>x.batches.length,r:x=>x.batches.length},
+    {k:"id",l:"Run ID",r:x=>`<span class="mono">${esc(x.id)}</span>`},{k:"run_type",l:"Type",r:x=>esc(runLabel(x.run_type))},{k:"run_status",l:"Status",r:x=>st(x.run_status)},
+    {k:"b",l:"Batches",num:true,s:x=>x.batches.length,r:x=>x.batches.length},
     {k:"r",l:"Rows loaded",num:true,s:x=>(x.totals||{}).rows_loaded??0,r:x=>fmt((x.totals||{}).rows_loaded??x.batches.reduce((a,b)=>a+(b.loaded||0),0))},
     {k:"q",l:"Quarantined",num:true,s:x=>(x.totals||{}).rows_rejected??0,r:x=>{const q=(x.totals||{}).rows_rejected??0;return q?`<span style="color:var(--review);font-weight:600">${fmt(q)}</span>`:"0"}},
     {k:"by",l:"Data moved",num:true,s:x=>(x.indicators||{}).bytes||0,r:x=>(x.indicators||{}).bytes_known_for?bytesH(x.indicators.bytes):'<span class="muted small">Not recorded</span>'}],
@@ -1324,17 +1352,27 @@ function lRun(){
      <div><div class="v">${ind.seconds!=null?`${fmt(ind.seconds)} s`:"–"}</div><div class="l">Elapsed</div></div>
      <div><div class="v">${ind.peak_parallel??"–"} <span class="small muted" style="font-weight:400">of ${esc(ind.max_parallel??"–")}</span></div><div class="l">${ind.peak_parallel!=null?"Most batches in flight at once, of the limit":"Batch timings not recorded for this run"}</div></div>
      <div><div class="v">${ind.cost?usd(ind.cost.aws_egress):"–"}</div><div class="l">Estimated AWS transfer-out cost</div></div></div>
-    <div class="batches">${r.batches.map((b,i)=>`<button class="batch ${b.status} ${b.attempt>1?"retried":""} ${UI.bSel===b.id?"sel":""}" data-i="${i}"><b>${esc(b.batch_key)}</b>${esc(b.partition)}<div class="muted">${fmt(b.loaded??0)} rows</div>${b.rejected?`<div class="q">${b.rejected} quarantined</div>`:""}${b.attempt>1?`<div class="q">Attempt ${b.attempt}</div>`:""}</button>`).join("")}</div></div></div>
+    <div id="lBatches"></div></div></div>
    <aside class="panel" id="bPanel"></aside></div>`;
-  const bp=b=>{$("#bPanel").innerHTML=panel(`Batch ${esc(b.batch_key)}`,`${esc(b.partition)} · ${st(b.status)}`,
+  const bp=b=>{$("#bPanel").innerHTML=panel(`Batch ${esc(b.batch_key)}`,`${esc(partLabel(r,b))} · ${st(b.status)}`,
      `<div class="metrics" style="margin-bottom:12px;grid-template-columns:repeat(4,1fr)"><div><div class="v">${fmt(b.source_count??"–")}</div><div class="l">Source</div></div><div><div class="v">${fmt(b.extracted??"–")}</div><div class="l">Extracted</div></div><div><div class="v">${fmt(b.loaded??"–")}</div><div class="l">Loaded</div></div><div><div class="v ${b.rejected?"review":""}">${fmt(b.rejected??0)}</div><div class="l">Rejected</div></div></div>`+
      kv([["Attempts",b.attempt],["Error",esc(b.error||"None")],["Checksum",`<code>${esc(b.checksum||"–")}</code>`],["Load job",`<code>${esc((b.checkpoint||{}).load_job_id||"")}</code>`],["Landing",`<code>${esc((b.checkpoint||{}).landing_uri||"")}</code>`],["Quarantine",`<code>${esc((b.checkpoint||{}).rejected_ref||"")}</code>`],["Source query",`<code>${esc(((b.checkpoint||{}).manifest||{}).source_query||"")}</code>`]])+
      `<h3>Checkpoint</h3><pre class="json">${esc(JSON.stringify(b.checkpoint,null,2))}</pre>`);closeBind("#bPanel",()=>{UI.bSel=null;lRun()})};
-  $$("#lRun .batch").forEach(el=>el.onclick=()=>{const b=r.batches[+el.dataset.i];UI.bSel=b.id;$$("#lRun .batch").forEach(x=>x.classList.toggle("sel",x===el));bp(b)});
+  if(!TS.tBat||TS.tBat._run!==r.id)TS.tBat={k:"batch_key",d:1,p:0,q:"",_run:r.id};      // a new run starts with a clean search
+  const drawB=()=>mountTable("#lBatches","tBat",r.batches,[
+    {k:"batch_key",l:"Batch",r:x=>`<b style="font-weight:500">${esc(x.batch_key)}</b>`},
+    {k:"partition",l:"Partition",s:x=>partLabel(r,x),r:x=>esc(partLabel(r,x))},
+    {k:"status",l:"Status",r:x=>st(x.status)},
+    {k:"loaded",l:"Rows loaded",num:true,s:x=>x.loaded??0,r:x=>fmt(x.loaded??0)},
+    {k:"rejected",l:"Quarantined",num:true,s:x=>x.rejected||0,r:x=>x.rejected?`<span style="color:var(--review);font-weight:600">${fmt(x.rejected)}</span>`:"0"},
+    {k:"attempt",l:"Attempts",num:true,s:x=>x.attempt||1,r:x=>x.attempt>1?`<span style="color:var(--review);font-weight:600">${x.attempt}</span>`:String(x.attempt||1)}],
+    {sort:"batch_key",scroll:true,key:b=>b.id,selected:UI.bSel,empty:"No batches match.",onSelect:b=>{UI.bSel=b.id;drawB();bp(b)}});
+  drawB();
   const sb=r.batches.find(b=>b.id===UI.bSel);sb?bp(sb):$("#bPanel").innerHTML=panelEmpty("Select a batch to see its counts, checksum, landing location and checkpoint.");
 }
 
 /* ------------------------------------------------- historical and incremental loads (Round 8) */
+const partLabel=(r,b)=>r.run_type==="INCREMENTAL_CATCH_UP"?"Changed after the snapshot":b.partition;   // its raw label carries the snapshot timestamp
 const runLabel=s=>({FULL_HISTORICAL_BACKFILL:"Historical backfill",SELECTIVE_RELOAD:"Selective reload",INCREMENTAL_CATCH_UP:"Incremental catch-up",CDC_APPLY:"Change events (CDC)"})[s]||human(s);
 const tsH=x=>String(x||"").replace("T"," ").slice(0,19);
 function loadKinds(){
@@ -1370,10 +1408,10 @@ function loadsOverview(){
   return `<div class="box" style="margin-bottom:16px"><div class="hd"><h2>Historical and incremental loads</h2><span class="note">Select a card to see its run in full</span></div>
    <div class="lanes">
     ${card(hist,"Historical backfill",`One-time copy of all history, one batch per month<div style="margin-top:4px"><span class="tag neutral">Snapshot at a point in time</span></div>`,`${rows(hist)} <span>rows loaded</span>`,
-      [`${fmt(hist?hist.batches.length:0)} monthly batches${parts.length?`, ${esc(parts[0])} to ${esc(parts[parts.length-1])}`:""}`,`Snapshot taken at watermark <code>${esc(hist?hist.watermark:"")}</code>`],
+      [`${fmt(hist?hist.batches.length:0)} monthly batches${parts.length?`, ${esc(parts[0])} to ${esc(parts[parts.length-1])}`:""}`],
       hist?auditLine(hist.id,["MIGRATION_RUN_FINISHED"]):"")}
     ${card(inc,"Incremental catch-up",`Rows that changed after the snapshot<div style="margin-top:4px">${sim}</div>`,inc?`${rows(inc)} <span>rows loaded</span>`:"",
-      inc?[`${fmt(ic.inserted??"–")} new, ${fmt(ic.updated??"–")} updated (merged on order_id)`,`Watermark <code>${esc(ic.from_watermark||"")}</code> → <code>${esc(ic.to_watermark||"")}</code>`]:[],
+      inc?[`${fmt(ic.inserted??"–")} new, ${fmt(ic.updated??"–")} updated (merged on order_id)`]:[],
       inc?auditLine(inc.id,["INCREMENTAL_APPLIED"]):"")}
     ${card(cdc,"Change events (CDC)",`Ordered insert, update and delete events<div style="margin-top:4px">${sim}</div>`,cdc?`${fmt(a1)} <span>events applied</span>`:"",
       cdc?[`${fmt(t.I||0)} inserts, ${fmt(t.U||0)} updates, ${fmt(t.D||0)} deletes`,`Reached log position (LSN) <code>${esc(cc.applied_lsn??"–")}</code>`]:[],
@@ -1389,8 +1427,8 @@ function incrementalDetail(r){
   const b=(r.batches||[])[0]||{}, cp=b.checkpoint||{}, t=r.totals||{};
   if(r.run_type==="INCREMENTAL_CATCH_UP"){
     return `<div class="rec"><h3>Recorded: incremental catch-up <span class="tag neutral" style="margin-left:6px">Simulated source change</span></h3>
-     <p class="small" style="margin:0 0 8px">After the historical snapshot, orders kept changing in AWS. This run pulled every row whose <code>updated_at</code> was later than the snapshot watermark and merged it into the Google Cloud table.</p>
-     ${kv([["Watermark moved",`<code>${esc(cp.from_watermark||"–")}</code> → <code>${esc(cp.to_watermark||"–")}</code>`],["Rows pulled from the source",fmt(b.extracted??"–")],
+     <p class="small" style="margin:0 0 8px">After the historical snapshot, orders kept changing in AWS. This run pulled every row whose <code>updated_at</code> was later than the historical snapshot and merged it into the Google Cloud table.</p>
+     ${kv([["Rows pulled from the source",fmt(b.extracted??"–")],
        ["New rows (inserted)",fmt(cp.inserted??"–")],["Existing rows (updated)",fmt(cp.updated??"–")],["Rejected",fmt(b.rejected??0)],["Load method",esc(cp.mode||"MERGE ON order_id")],
        ["Safe to repeat","Yes. A merge on the key gives the same result if it is run again."],["Audit trail",auditLine(r.id,["INCREMENTAL_APPLIED"])]])}</div>`;
   }
@@ -1783,19 +1821,25 @@ function nPanel(x){
 
 /* ============================================================== 12 audit */
 function vAudit(){
-  const a=S.audit;UI.aTab=UI.aTab||"approvals";
+  const a=S.audit;UI.aTab=UI.aTab||"runs";
   const desc={"migration_readiness_report.html":"Readiness report for review","migration_readiness_report.pdf":"Readiness report, printable","migration_report.xlsx":"All tables in one workbook","availability.csv":"Data availability check by dataset","resources.csv":"Discovered resources","mappings.csv":"Service mappings","movement_plan.csv":"Data movement plan","batches.csv":"Load batches","validation_results.csv":"Validation checks","risks.csv":"Risk scores and gates","stakeholders.csv":"Owner directory","notifications.csv":"Stakeholder drafts","audit.csv":"Audit log"};
   const sim=S.approvals.filter(x=>/SIMULATED/i.test(x.approver)).length;
   return head("audit","Exports for review and a tamper-evident record of every action and decision.")+`
-  <div class="cols c2">
-   <div class="box"><div class="hd"><h2>Exports</h2><span class="note">${(S.reports||[]).length} files</span></div>
-    <div class="tw flush"><table><thead><tr><th>File</th><th>Contents</th></tr></thead><tbody>${(S.reports||[]).map(r=>{const f=r.split("/").pop();return `<tr><td><a class="mono" href="${LIVE?"/api/v1/reports/"+esc(f)+pq():esc(r)}" target="_blank" rel="noopener">${esc(f)}</a></td><td class="small sub">${esc(desc[f]||"")}</td></tr>`}).join("")}</tbody></table></div></div>
+  <div>${tabs("aTabs",[["runs","Engine runs",S.agent_runs.length],["approvals","Approvals",S.approvals.length],["log","Audit log",a.events.length]],UI.aTab)}<div id="aBody"></div></div>
+  <div style="margin-top:20px">
    <div class="box"><div class="hd"><h2>Audit integrity</h2>${tag(a.chain.valid?"PASS":"FAIL",a.chain.valid?"Chain intact":"Chain broken")}</div><div class="bd">
     <p class="sub" style="margin-bottom:10px">${fmt(a.chain.events)} events. Each event stores the SHA-256 hash of the previous one, so any edit to history is detectable.</p>
-    ${kv([["Latest hash",`<code>${esc(a.chain.head)}</code>`],["Approvals",`${S.approvals.length}${sim?`, of which ${sim} recorded by the demo script`:""}`],["Engine runs",`${S.agent_runs.length}, all completed with deterministic rules`]])}</div></div></div>
-  <div style="margin-top:20px">${tabs("aTabs",[["approvals","Approvals",S.approvals.length],["log","Audit log",a.events.length],["runs","Engine runs",S.agent_runs.length]],UI.aTab)}<div id="aBody"></div></div>`;
+    ${kv([["Latest hash",`<code>${esc(a.chain.head)}</code>`],["Approvals",`${S.approvals.length}${sim?`, of which ${sim} recorded by the demo script`:""}`],["Engine runs",`${S.agent_runs.length}, all completed with deterministic rules`]])}</div></div>
+  </div>
+  <div style="margin-top:20px">
+   <div class="box"><div class="hd"><h2>Exports</h2><span class="note">${(S.reports||[]).length} files</span></div>
+    <div class="tsearch flush"><input type="search" id="exQ" placeholder="Search exports" aria-label="Search exports"></div>
+    <div class="tw flush"><table><thead><tr><th>File</th><th>Contents</th></tr></thead><tbody>${(S.reports||[]).map(r=>{const f=r.split("/").pop();return `<tr><td><a class="mono" href="${LIVE?"/api/v1/reports/"+esc(f)+pq():esc(r)}" target="_blank" rel="noopener">${esc(f)}</a></td><td class="small sub">${esc(desc[f]||"")}</td></tr>`}).join("")}<tr id="exNone" hidden><td colspan="2" class="empty">No files match.</td></tr></tbody></table></div></div>
+  </div>`;
 }
-function bAudit(){onTabs("aTabs",v=>{UI.aTab=v;aBody()});aBody()}
+function bAudit(){onTabs("aTabs",v=>{UI.aTab=v;aBody()});aBody();
+  const q=$("#exQ");if(q)q.oninput=()=>{const w=q.value.toLowerCase().split(/\s+/).filter(Boolean);let n=0;
+    $$("tbody tr:not(#exNone)",q.closest(".box")).forEach(tr=>{const ok=w.every(x=>tr.textContent.toLowerCase().includes(x));tr.hidden=!ok;if(ok)n++});$("#exNone").hidden=n>0}}
 function aBody(){
   if(UI.aTab==="approvals"){mountTable("#aBody","tApr",S.approvals,[{k:"created_at",l:"When",r:x=>`<span class="nowrap">${esc(String(x.created_at).replace("T"," ").slice(0,16))}</span>`},{k:"object_type",l:"Object",r:x=>esc(human(x.object_type))},
     {k:"object_id",l:"ID",r:x=>`<span class="mono small">${esc(x.object_id)}</span>`},{k:"approver",l:"Approver"},{k:"decision",l:"Decision",r:x=>st(x.decision)},{k:"rationale",l:"Rationale",r:x=>`<span class="small">${esc(x.rationale)}</span>`}],{sort:"created_at",dir:-1});return}
